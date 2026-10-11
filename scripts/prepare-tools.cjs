@@ -108,7 +108,7 @@ async function prepareSourceTools({root,platform,arch,output,specification}){
   fs.writeFileSync(path.join(output,'FFmpeg.VERSION.txt'),build);
   fs.copyFileSync(path.join(root,'THIRD_PARTY_NOTICES.md'),path.join(output,'THIRD_PARTY_NOTICES.md'));
   if(platform!=='win32'){fs.chmodSync(path.join(output,'N_m3u8DL-RE'),0o755);fs.chmodSync(ffmpegFile,0o755);}
-  fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({platform,arch,engineVersion:manifest.engineVersion,ffmpegRelease:`source-${source.version}`,ffmpegBuild:build,configure:compiled.flags,assets:{engine:specification.engine,ffmpegSource:source,ffmpegBuilt:{sha256:digest(fs.readFileSync(ffmpegFile)),name:`ffmpeg${suffix}`}}},null,2)+'\n');
+  fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({platform,arch,engineVersion:manifest.engineVersion,ffmpegRelease:`source-${source.version}`,ffmpegBuild:build,configure:compiled.flags,assets:{engine:specification.engine,ffmpegSource:source,ffmpegBuilt:{sha256BeforeSigning:digest(fs.readFileSync(ffmpegFile)),name:`ffmpeg${suffix}`}}},null,2)+'\n');
   fs.mkdirSync(path.join(root,'dist'),{recursive:true});
   fs.copyFileSync(sourceArchive,path.join(root,'dist',`FFmpeg-${source.version}-Source.tar.xz`));
   console.log(`Source-built bundled tools ready: ${platform}-${arch}`);

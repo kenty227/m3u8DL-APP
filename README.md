@@ -85,7 +85,7 @@ npm install
 
 构建脚本要求在对应系统运行，避免误用另一系统的 Electron 运行时。Linux AppImage 下载后需要执行权限；`.deb` 用于 Debian / Ubuntu 系发行版。macOS / Linux 不依赖 Windows 的 C# 控制组件。
 
-`.github/workflows/build.yml` 配置了 Windows x64、macOS x64 / arm64、Linux x64 / arm64 五个原生构建任务。每个任务运行单元测试、使用官方 v0.6.0-beta 引擎完成本地点播及定时录制测试，构建内置工具的安装包，再在移除开发工具 PATH 的环境中测试点播、定时录制及 MP4 解码，最后上传安装包。普通 push、Pull Request 和手动触发只产生 Actions artifacts。推送与 `package.json` 版本一致的 `v版本` 标签后，五个任务全部通过才会汇总成品、应用源码、工具信息和 SHA-256 校验值，自动创建或更新 **GitHub Release 草稿**。草稿仅维护者可见，正式发布后普通用户才能在 Releases 下载。流程不依赖个人访问令牌，使用当前仓库的 `GITHUB_TOKEN`。
+`.github/workflows/build.yml` 配置了 Windows x64、macOS x64 / arm64、Linux x64 / arm64 五个原生构建任务。每个任务运行单元测试、使用官方 v0.6.0-beta 引擎完成本地点播及定时录制测试，构建内置工具的安装包，再在移除开发工具 PATH 的环境中测试点播、定时录制及 MP4 解码，最后上传安装包。普通 push、Pull Request 和手动触发只产生 Actions artifacts。推送与 `package.json` 版本一致的 `v版本` 标签后，五个任务全部通过才会汇总成品、应用源码、工具信息和 SHA-256 校验值，先建立草稿并核对附件，再自动公开为 **GitHub 预发布版**，普通用户可以直接下载。流程不依赖个人访问令牌，使用当前仓库的 `GITHUB_TOKEN`。
 
 发布步骤见 [docs/RELEASING.md](docs/RELEASING.md)。每个发行构建同时输出 `FFmpeg-6.1.6-Source.tar.xz`；汇总任务核对五个平台的源码与固定 SHA-256，一并提供未修改的官方源码、应用 Source.zip 中的构建脚本和 TOOLS.json 中的构建配置。
 
