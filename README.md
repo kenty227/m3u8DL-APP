@@ -11,7 +11,7 @@
 | Windows x64 | `m3u8-Studio-版本-Windows.exe` | 双击运行便携应用 |
 | macOS Intel | `m3u8-Studio-版本-macOS-x64.dmg` / `.zip` | 安装或解压到 Applications |
 | macOS Apple Silicon | `m3u8-Studio-版本-macOS-arm64.dmg` / `.zip` | 安装或解压到 Applications |
-| Linux x64 | `m3u8-Studio-版本-Linux-x64.AppImage` / `.deb` | AppImage 加执行权限后运行；Debian / Ubuntu 可安装 deb |
+| Linux x64 | `m3u8-Studio-版本-Linux-x86_64.AppImage` / `m3u8-Studio-版本-Linux-amd64.deb` | AppImage 加执行权限后运行；Debian / Ubuntu 可安装 deb |
 | Linux arm64 | `m3u8-Studio-版本-Linux-arm64.AppImage` / `.deb` | 选择与 CPU 架构匹配的文件 |
 
 成品包含 Electron、N_m3u8DL-RE 和 FFmpeg，**无需安装 Node.js 或手动配置下载工具**。GitHub 自动生成的 “Source code” 和项目的 `Source.zip` 用于开发，普通用户选择上表的成品文件。所有成品都使用各自系统提供的基础运行库。macOS 当前使用 ad-hoc 签名，尚未 Developer ID 签名或公证，可能被 Gatekeeper 阻止。
@@ -21,8 +21,8 @@ Windows 的实际下载、定时录制和界面已在本机验证；五个系统
 Linux AppImage 示例：
 
 ```bash
-chmod +x m3u8-Studio-1.2.0-Linux-x64.AppImage
-./m3u8-Studio-1.2.0-Linux-x64.AppImage
+chmod +x m3u8-Studio-1.2.0-Linux-x86_64.AppImage
+./m3u8-Studio-1.2.0-Linux-x86_64.AppImage
 ```
 
 Releases 的 `SHA256SUMS.txt` 提供附件校验值，`TOOLS.json` 记录各平台内置工具的准确版本与来源。更新记录见 [CHANGELOG.md](CHANGELOG.md)；二开与贡献说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
