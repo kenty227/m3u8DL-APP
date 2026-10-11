@@ -21,6 +21,11 @@ function assetNames(version, target) {
   return target.extensions.map(ext => `m3u8-Studio-${version}-${target.label}.${ext}`);
 }
 function requireFile(file) {
+  if (!fs.existsSync(file)) {
+    const folder = path.dirname(file);
+    const entries = fs.existsSync(folder) ? fs.readdirSync(folder, { recursive: true }).slice(0, 30).join(', ') : '(directory missing)';
+    throw new Error(`ENOENT: missing release file ${file}; available files: ${entries}`);
+  }
   const stat = fs.lstatSync(file);
   if (!stat.isFile() || stat.isSymbolicLink() || !stat.size) throw new Error(`Missing or invalid release file: ${file}`);
 }
