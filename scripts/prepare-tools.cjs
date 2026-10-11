@@ -46,11 +46,14 @@ async function download(asset,root){
   throw new Error(`Cannot download ${asset.name}: ${failure.message}`);
 }
 
-async function prepareTools({root=path.resolve(__dirname,'..'),platform=process.platform,arch=process.arch}={}){
+async function prepareTools({root=path.resolve(__dirname,'..'),platform=process.platform,arch=process.arch,sourceFfmpeg=false}={}){
   const specification=manifest.platforms[`${targets[platform]}-${arch}`];
   if(!specification)throw new Error(`No bundled tools for ${platform}-${arch}`);
   const output=bundleDirectory(root,platform,arch);
   fs.mkdirSync(output,{recursive:true});
+  // The upstream ARM macOS binary is nonfree. Development on that target and
+  // all distribution builds use our native LGPL source build instead.
+  if(sourceFfmpeg || (platform==='darwin' && arch==='arm64'))return prepareSourceTools({root,platform,arch,output,specification});
   const assets=[specification.engine,specification.ffmpeg,specification.license,specification.readme,...manifest.licenses];
   const results=await Promise.allSettled(assets.map(asset=>download(asset,root)));
   for(const result of results)if(result.status==='rejected')throw result.reason;
@@ -78,6 +81,37 @@ async function prepareTools({root=path.resolve(__dirname,'..'),platform=process.
   // Build metadata contains upstream URLs and hashes, never paths from the builder's machine.
   fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({platform,arch,engineVersion:manifest.engineVersion,ffmpegRelease:manifest.ffmpegVersion,ffmpegBuild,assets:specification},null,2)+'\n');
   console.log(`Bundled tools ready: ${platform}-${arch}`);
+  return output;
+}
+
+async function prepareSourceTools({root,platform,arch,output,specification}){
+  const source=manifest.ffmpegSource;
+  if(!source)throw new Error('Missing pinned FFmpeg source specification.');
+  const assets=[specification.engine,source,...manifest.licenses];
+  const results=await Promise.allSettled(assets.map(asset=>download(asset,root)));
+  for(const result of results)if(result.status==='rejected')throw result.reason;
+  const data=results.map(result=>result.value);
+  const staging=path.join(root,'.build','staging',randomUUID());fs.mkdirSync(staging,{recursive:true});
+  const archive=path.join(staging,specification.engine.name);fs.writeFileSync(archive,data[0]);
+  execFileSync('tar',['-xf',archive,'-C',staging],{stdio:'inherit'});
+  const suffix=platform==='win32'?'.exe':'';
+  fs.copyFileSync(path.join(staging,`N_m3u8DL-RE${suffix}`),path.join(output,`N_m3u8DL-RE${suffix}`));
+  const sourceArchive=path.join(root,'.build','downloads',`${source.sha256}-${source.name}`);
+  const compiled=require('./build-ffmpeg.cjs').compileFfmpeg({root,archive:sourceArchive,source,platform,arch});
+  const ffmpegFile=path.join(output,`ffmpeg${suffix}`);fs.copyFileSync(compiled.executable,ffmpegFile);
+  if(fs.existsSync(compiled.licenseDir))fs.cpSync(compiled.licenseDir,path.join(output,'TOOLCHAIN-LICENSES'),{recursive:true});
+  manifest.licenses.forEach((asset,index)=>fs.writeFileSync(path.join(output,asset.name),data[index+2]));
+  const build=execFileSync(ffmpegFile,['-version'],{encoding:'utf8',windowsHide:true});
+  if(!build.includes('--disable-gpl') || !build.includes('--disable-nonfree') || !build.includes('--disable-autodetect') || build.includes('--enable-gpl') || build.includes('--enable-nonfree'))throw new Error('Source FFmpeg must use the LGPL build configuration with no external libraries.');
+  fs.copyFileSync(path.join(output,'COPYING.LGPLv2.1'),path.join(output,'FFmpeg.LICENSE.txt'));
+  fs.writeFileSync(path.join(output,'FFmpeg.BUILD.txt'),`${build}\nUnmodified official FFmpeg source: ${source.url}\nSource SHA-256: ${source.sha256}\nBuild recipe: scripts/build-ffmpeg.cjs in application Source.zip\n`);
+  fs.writeFileSync(path.join(output,'FFmpeg.VERSION.txt'),build);
+  fs.copyFileSync(path.join(root,'THIRD_PARTY_NOTICES.md'),path.join(output,'THIRD_PARTY_NOTICES.md'));
+  if(platform!=='win32'){fs.chmodSync(path.join(output,'N_m3u8DL-RE'),0o755);fs.chmodSync(ffmpegFile,0o755);}
+  fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({platform,arch,engineVersion:manifest.engineVersion,ffmpegRelease:`source-${source.version}`,ffmpegBuild:build,configure:compiled.flags,assets:{engine:specification.engine,ffmpegSource:source,ffmpegBuilt:{sha256:digest(fs.readFileSync(ffmpegFile)),name:`ffmpeg${suffix}`}}},null,2)+'\n');
+  fs.mkdirSync(path.join(root,'dist'),{recursive:true});
+  fs.copyFileSync(sourceArchive,path.join(root,'dist',`FFmpeg-${source.version}-Source.tar.xz`));
+  console.log(`Source-built bundled tools ready: ${platform}-${arch}`);
   return output;
 }
 

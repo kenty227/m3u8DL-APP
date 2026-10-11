@@ -15,7 +15,7 @@ npm ci
 npm start
 ```
 
-首次启动会联网下载锁定版本的 Electron 和当前系统的下载工具。所有工具通过 SHA-256 校验，缓存到项目 `.build`。无需作者电脑中的 Node 安装目录、FFmpeg 路径、下载目录或用户配置。Windows 通过系统 .NET Framework 的 C# 编译器生成控制组件，无需 .NET SDK；macOS / Linux 不使用该组件。
+首次启动会联网准备锁定版本的 Electron 和当前系统的工具，下载资源通过 SHA-256 校验，缓存到项目 `.build`。Windows / Linux / Intel Mac 开发启动使用预编译工具；Apple Silicon 自动从官方源码编译 FFmpeg，需要 Xcode Command Line Tools。无需作者电脑的安装路径或用户配置。Windows 使用系统 .NET Framework 的 C# 编译器生成控制组件，无需 .NET SDK；macOS / Linux 不使用该组件。
 
 Git 不包含 `node_modules`、构建缓存、原生生成文件、安装包、下载媒体、日志和用户任务。依赖版本由 `package-lock.json` 锁定，使用 `npm ci` 重建。FFmpeg 镜像只在上游慢时按 README 临时配置，不写入仓库或用户设置。
 
@@ -58,6 +58,14 @@ npm run test:portable
 `smoke` 在开发环境需要 FFmpeg 和 FFprobe 可通过 PATH 运行。`ci-engine.cjs` 将固定版本的官方引擎放入测试位置。`test:ui` 使用 `smoke` 生成的测试流。测试使用 `.smoke` 独立数据，不修改正常应用配置。跨系统修改由 GitHub Actions 在五个目标上继续验证。
 
 ## 构建自己的版本
+
+发行构建始终从固定版本的官方 FFmpeg 源码编译，不引入外部编解码库。准备 C 编译器和 make：
+
+- Windows：安装 [MSYS2](https://www.msys2.org/)，在 MINGW64 终端执行 `pacman -S --needed make mingw-w64-x86_64-gcc`。在运行 npm 构建的 PowerShell 中设置 `$env:M3U8_MSYS2 = 'C:\msys64'`，按实际安装位置填写。该路径只用于编译，成品不引用它。
+- macOS：执行 `xcode-select --install`，提供 clang 和 make。
+- Debian / Ubuntu：执行 `sudo apt-get install build-essential`；其他发行版安装对应的 GCC / make。
+
+首次编译需要几分钟，之后验证并复用 `.build/ffmpeg-source-build` 缓存。普通用户无需这些工具，CI 自动安装。完整配方为 `scripts/build-ffmpeg.cjs`，官方源码版本和 SHA-256 在 `scripts/tools-manifest.json`。内置 FFmpeg 用于封装和解码，未包含 libx264、libx265 等外部编码器；需要这些功能时在设置中选择自己的 FFmpeg，并遵守其许可。
 
 在对应系统运行 `npm run build`，或使用 README 的系统和架构命令。输出位于 `dist`。修改应用名称、`appId` 或版本时同步检查 `package.json`、锁文件、图标、Release 文件命名与更新记录。维护自己的 Fork 时将 package.json 中的 repository、homepage、bugs 改为自己的地址。
 

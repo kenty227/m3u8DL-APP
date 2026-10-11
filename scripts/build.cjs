@@ -7,7 +7,7 @@ async function build(){
 const plan=buildPlan(process.argv.slice(2));
 if(plan.target==='win') require('./build-native.cjs');
 const root=path.resolve(__dirname,'..');
-await prepareTools({root,arch:plan.arch});
+await prepareTools({root,arch:plan.arch,sourceFfmpeg:true});
 const temp=path.join(root,'.build','tmp'),cache=path.join(root,'.build','cache');
 fs.mkdirSync(temp,{recursive:true});fs.mkdirSync(cache,{recursive:true});
 const args=[require.resolve('electron-builder/cli.js'),...plan.args];

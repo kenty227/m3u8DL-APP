@@ -154,5 +154,11 @@
       "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n6.1.1/COPYING.LGPLv2.1",
       "sha256": "b634ab5640e258563c536e658cad87080553df6f34f62269a21d554844e58bfe"
     }
-  ]
+  ],
+  "ffmpegSource": {
+    "version": "6.1.6",
+    "name": "ffmpeg-6.1.6.tar.xz",
+    "url": "https://ffmpeg.org/releases/ffmpeg-6.1.6.tar.xz",
+    "sha256": "d4fcb164028dd3beee5d92c0ac72e46aac6973c75ea12dc14de07bf8f407370a"
+  }
 }

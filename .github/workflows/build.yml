@@ -18,7 +18,7 @@ jobs:
   build:
     name: ${{ matrix.platform }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -56,26 +56,33 @@ jobs:
       - name: Install FFmpeg (Windows)
         if: runner.os == 'Windows'
         run: choco install ffmpeg --no-progress -y
+      - name: Install native FFmpeg source compiler (Windows)
+        if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: make mingw-w64-x86_64-gcc
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg
       - name: Install FFmpeg and packaging tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg libfuse2 libarchive-tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libfuse2 libarchive-tools build-essential
       - name: Install official engine for integration tests
         run: node scripts/ci-engine.cjs
       - run: node scripts/build-native.cjs
       - name: Verify real VOD and timed recording
         run: npm run smoke
       - run: npm run build -- --${{ matrix.platform }} --${{ matrix.arch }}
+        env:
+          M3U8_MSYS2: ${{ steps.msys2.outputs.msys2-location }}
       - name: Verify packaged tools without developer tool paths
         run: npm run test:portable
       - name: Include pinned tool and license build information
         run: node scripts/release.cjs export-tools --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
       - uses: actions/upload-artifact@v7
-        # Do not publicly redistribute bundled FFmpeg before its corresponding
-        # sources are available. See docs/RELEASING.md for this repository variable.
-        if: vars.DISTRIBUTION_READY == 'true'
         with:
           name: m3u8-Studio-${{ matrix.platform }}-${{ matrix.arch }}
           if-no-files-found: error
@@ -86,6 +93,7 @@ jobs:
             dist/*.AppImage
             dist/*.deb
             dist/tools-manifest.json
+            dist/FFmpeg-*-Source.tar.xz
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -95,7 +103,7 @@ jobs:
 
   release:
     name: Prepare GitHub Release draft
-    if: startsWith(github.ref, 'refs/tags/v') && vars.DISTRIBUTION_READY == 'true'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15

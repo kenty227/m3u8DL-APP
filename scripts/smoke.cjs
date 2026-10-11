@@ -4,13 +4,17 @@ const http = require('node:http');
 const { execFileSync } = require('node:child_process');
 const assert = require('node:assert/strict');
 const { DownloadService } = require('../src/service.cjs');
+function reportError(error){console.error(error);if(process.env.GITHUB_ACTIONS)console.log(`::error title=Media integration::${String(error.message).slice(-6000).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A')}`);process.exitCode=1;}
+process.on('uncaughtException',reportError);
 const root=path.resolve(__dirname,'..','.smoke');fs.mkdirSync(root,{recursive:true});
 const resources=process.argv.find(arg=>arg.startsWith('--resources='))?.slice(12);
 const toolsDir=resources ? path.join(resources,'tools') : undefined;
 const ffmpeg=toolsDir ? path.join(toolsDir,process.platform==='win32'?'ffmpeg.exe':'ffmpeg') : 'ffmpeg';
 const isolated=Boolean(resources);
 const media=path.join(root,'media');fs.mkdirSync(media,{recursive:true});
-execFileSync(ffmpeg,['-y','-f','lavfi','-i','testsrc=size=320x180:rate=25','-f','lavfi','-i','sine=frequency=440','-t','6','-c:v','libx264','-pix_fmt','yuv420p','-g','25','-c:a','aac','-f','hls','-hls_time','1','-hls_list_size','0',path.join(media,'test.m3u8')],{stdio:'pipe',windowsHide:true});
+if(!resources)execFileSync(ffmpeg,['-y','-filter_threads','1','-threads','1','-f','lavfi','-i','testsrc=size=320x180:rate=25','-f','lavfi','-i','sine=frequency=440','-t','6','-c:v','libx264','-threads','1','-pix_fmt','yuv420p','-g','25','-c:a','aac','-f','hls','-hls_time','1','-hls_list_size','0',path.join(media,'test.m3u8')],{stdio:'pipe',windowsHide:true});
+if(process.argv.includes('--generate-only'))process.exit(0);
+if(!fs.existsSync(path.join(media,'test.m3u8')))throw new Error('Generate the local test media with smoke --generate-only before testing bundled tools.');
 const playlist=fs.readFileSync(path.join(media,'test.m3u8'),'utf8');
 let liveStarted;
 const segments=playlist.match(/test\d+\.ts/g);
@@ -59,4 +63,4 @@ async function waitJob(service,id,timeout=45000){
       else {const output=execFileSync('ffprobe',['-v','error','-show_entries','format=duration','-of','csv=p=0',path.join(outputDir,file)],{encoding:'utf8',windowsHide:true});assert.ok(Number(output)>0);console.log('Playable MP4:',file,'duration',output.trim());}
     }
   }finally{await service.shutdown();server.close();}
-})().catch(error=>{console.error(error);process.exitCode=1;});
+})().catch(reportError);

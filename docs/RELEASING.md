@@ -1,60 +1,64 @@
 # GitHub 仓库与版本发布
 
-目标仓库：**kenty227/m3u8DL-APP**。仓库提供 MIT 应用源码供开发者 Fork，Releases 提供普通用户直接运行的安装包。
+仓库：**kenty227/m3u8DL-APP**。开发者 Fork MIT 应用源码，普通用户从 Releases 下载包含引擎和 FFmpeg 的成品。
 
 ## 首次上传
 
-在 GitHub 创建公开空仓库 `m3u8DL-APP`。不要勾选自动生成 README、LICENSE 或 .gitignore，本项目已包含这些文件。在项目目录执行：
+在 GitHub 创建公开空仓库，项目已包含 README、LICENSE 和 .gitignore，不勾选自动生成。首次上传命令：
 
 ```bash
 git init -b main
 git add .
 git status --short
 git commit -m "Initial release of m3u8 Studio"
-git remote add origin https://github.com/kenty227/m3u8DL-APP.git
+git remote add origin git@github.com:kenty227/m3u8DL-APP.git
 git push -u origin main
 ```
 
-提交列表应只包含代码、锁文件、文档、图标、测试和 GitHub 配置。`.gitignore` 已排除缓存、成品、媒体测试、用户数据、环境变量和签名证书。既有仓库使用现有历史，不强制推送覆盖远端。推送需要仓库的写权限和正常 GitHub 登录；不要把令牌写入远端 URL 或文件。
+HTTPS 登录也可使用 `https://github.com/kenty227/m3u8DL-APP.git`。不要把令牌写入文件或远端地址；既有仓库使用现有历史，不强制覆盖。提交只包含代码、锁文件、文档、图标、测试和 GitHub 配置；缓存、成品、测试媒体、用户数据、环境变量和签名证书均已忽略。
 
-主分支首次推送后，在 Actions 的 **Desktop builds** 中查看五个原生系统/架构任务。所有任务会进行单元测试、实际点播与定时录制、打包及内置工具测试。默认不上传二进制，避免在对应源码尚未准备时通过公开 Actions artifacts 分发内置 FFmpeg。按下文完成分发准备并设置 `DISTRIBUTION_READY=true` 后，普通分支、PR 和手动运行的成品保存在 Actions artifacts，版本标签生成 Release 草稿；普通用户使用正式 Releases 页面。
+## 自动构建
 
-## 创建版本草稿
+Actions 的 **Desktop builds** 在 Windows x64、macOS x64 / arm64、Linux x64 / arm64 上执行单元测试、实际点播与定时录制、原生打包及打包后媒体解码测试。发行 FFmpeg 始终从官方固定版本源码编译，关闭 GPL、nonfree 和外部库自动检测。CI 安装编译工具，普通用户无需编译器、Node.js 或自行下载工具。
 
-1. 更新 `package.json` 和锁文件的版本，例如 `npm version 1.2.1 --no-git-tag-version`，并在 CHANGELOG.md 添加 `## 1.2.1`。
-2. 提交并推送代码；先确认主分支 CI 正常。
-3. 推送与包版本完全一致的标签。首个版本示例：
+普通分支、PR 和手动运行上传 Actions artifacts。每个平台的 artifact 同时包含安装包、tools-manifest.json 和完整 FFmpeg 对应源码。测试媒体生成使用 CI 的开发工具；真实下载、定时停止、混流和 MP4 解码使用打包工具，并移除开发工具 PATH。
+
+## 创建 Release 草稿
+
+更新 `package.json` 和锁文件的版本，例如 `npm version 1.2.1 --no-git-tag-version`，并在 CHANGELOG.md 添加 `## 1.2.1`。提交并推送代码，确认主分支 CI 正常，然后推送完全一致的版本标签：
 
 ```bash
 git tag -a v1.2.0 -m "m3u8 Studio 1.2.0"
 git push origin v1.2.0
 ```
 
-标签不一致会失败；任何平台构建或媒体验证失败都不会创建 Release。已设置 `DISTRIBUTION_READY=true` 且全部通过后，自动汇总九个系统安装/便携文件、应用 `Source.zip`、`TOOLS.json` 和 `SHA256SUMS.txt`，创建 **Release 草稿**。未设置变量时只构建和测试。工具清单包括各架构真实 FFmpeg 版本、构建配置、上游 URL 和哈希；同一个 ffmpeg-static 发布标签中的平台工具版本可能不同。
+标签不匹配、任一平台构建或媒体验证失败都不会生成 Release。五个平台全部通过后，汇总任务自动附上：
 
-流程仅在 Release 汇总任务使用 `contents: write`，通过内置 `GITHUB_TOKEN` 操作当前仓库，无需维护个人访问令牌。公开仓库默认可以使用 Actions；组织策略禁用 Actions 或禁止写权限时，先在仓库/组织配置中允许对应功能。Fork 的标签会在 Fork 自己的仓库生成草稿。
+- 九个系统安装/便携文件。
+- 应用 Source.zip，含源码、测试、文档及完整 FFmpeg 构建脚本。
+- `FFmpeg-6.1.6-Source.tar.xz`，与实际编译使用的未修改官方源码相同。
+- `TOOLS.json`，包括各平台编译器、版本、配置、来源与哈希。
+- `SHA256SUMS.txt`，校验所有下载附件。
 
-重跑会替换同版本的草稿附件和说明，**拒绝替换已经正式发布的 Release**。正式版本修复请增加版本号并推送新标签。草稿仅维护者可见；它不会出现在普通用户的公开下载列表。
+汇总脚本逐一校验五个平台的工具版本、架构、LGPL 配置与 FFmpeg 源码 SHA-256；缺失或不匹配的对应源码不能进入 Release。不需要额外设置 `DISTRIBUTION_READY`，源码准备和验证已由构建流程完成。
 
-## 正式公开前的准备
+流程仅在汇总任务使用 `contents: write`，通过当前仓库 `GITHUB_TOKEN` 操作，无需个人令牌。Fork 的标签在 Fork 自己的仓库生成草稿。组织策略限制 Actions 或 token 写入时，需要维护者在组织配置中允许对应功能。
 
-内置 FFmpeg 包含 GPL 构建。本仓库当前保留许可文本、上游构建信息和工具哈希，**尚未包含五个目标 FFmpeg 及全部静态依赖的完整对应源码包**。公开分发前，在同一 Release 附上与具体二进制匹配的对应源码、必要补丁、依赖源码、构建脚本和许可说明；不能仅用应用 `Source.zip` 或最新版 FFmpeg 仓库链接代替。按 TOOLS.json 的各平台构建配置追溯所需内容。可选择自行构建工具以明确控制版本和依赖，同时更新准备脚本、哈希与媒体验证。
+重跑会替换同版本草稿附件和说明，拒绝替换已正式发布的 Release。已发布版本修复需要增加版本号。草稿只对维护者可见；在 Releases 查看附件、说明和测试结果，确认后点击 **Publish release**，普通用户即可下载。
 
-许可参考：[FFmpeg 官方分发说明](https://ffmpeg.org/legal.html)、[GPLv3 第 6 条](https://www.gnu.org/licenses/gpl-3.0.html#section6)；组件清单见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。对应源码准备完毕后，将草稿说明中的维护者检查段替换为源码附件链接，并把新增附件哈希加入 SHA256SUMS.txt。自动草稿流程不会验证手工添加源码包的完整性，这需要维护者确认。
+## 分发与桌面验收
 
-先将完整对应源码和构建说明放在本仓库公开可下载的位置，例如一个专门的第三方源码 Release，并确认与 `scripts/tools-manifest.json` 的二进制逐一匹配。之后在仓库 **Settings → Secrets and variables → Actions → Variables** 设置 `DISTRIBUTION_READY` 为 `true`，再推送版本标签或重跑对应流程。该变量表示维护者已完成分发准备，不是自动许可审查；更新工具后要重新确认源码匹配。代码本身可以立即开源，不需要这个变量。
+对外分发时保留 FFmpeg 对应源码、构建脚本、构建配置和许可文本。应用 Source.zip 与 FFmpeg 完整源码为两个独立附件；不能只提供应用源码。更换工具或启用外部库时重新确认对应源码和许可要求。参考 [FFmpeg 官方说明](https://ffmpeg.org/legal.html) 和 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
 
-验证 macOS / Linux 的真实桌面启动、安装、下载目录选择和后台定时录制。CI 媒体测试不能代替完整桌面验收。macOS 当前只做 ad-hoc 签名；正式发布可配置 Developer ID 证书、公证与 Hardened Runtime。证书和密码只放仓库 Secrets，不提交源码。Windows 成品也尚未做发行者证书签名。
+CI 媒体验证不代替完整桌面验收。macOS / Linux 仍需确认实际安装、桌面启动、目录选择及后台录制。macOS 默认 ad-hoc 签名，尚未 Developer ID 签名或公证；Windows 也没有发行者证书签名。证书与密码放在 Secrets，不提交源码。首次公开版本可标记预发布并说明这些限制。
 
-在 GitHub Releases 编辑草稿，完成上述准备后点击 **Publish release**。随后 README 的 Releases 链接可供普通用户下载，无需 Git、Node.js 或源码构建。仓库可公开源码而继续保留二进制草稿，直到对应源码和实机验收完成。
+## 本地汇总检查
 
-## 本地检查汇总脚本
-
-将同一次构建的五个 Actions artifacts 解压到 `.build/release-artifacts`，保留 `m3u8-Studio-win-x64` 等各自文件夹，每个文件夹包含安装包与 `tools-manifest.json`。然后执行：
+将同一次构建的五个 artifacts 解压到 `.build/release-artifacts`，保留 `m3u8-Studio-win-x64` 等独立文件夹，然后执行：
 
 ```bash
 npm run share:source
 npm run release:prepare
 ```
 
-输出为 `.build/release`，包含附件、校验文件和 `RELEASE_NOTES.md`。脚本拒绝缺失目标、错误工具版本、错误架构、哈希清单不一致和已有非空输出目录，避免旧成品混入。再次准备时使用全新目录/干净 CI 工作区。发布说明不作为下载附件上传。
+输出为 `.build/release`，包含附件、校验文件和 RELEASE_NOTES.md。输出目录必须为空，避免旧成品混入。Release 说明不作为下载附件上传。

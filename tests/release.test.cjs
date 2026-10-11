@@ -10,8 +10,11 @@ const version = '1.2.0';
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'm3u8-release-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const sourceBytes = Buffer.from('official FFmpeg source fixture');
+  const fixturePinned = structuredClone(pinned);
+  fixturePinned.ffmpegSource.sha256 = crypto.createHash('sha256').update(sourceBytes).digest('hex');
   fs.mkdirSync(path.join(root, 'scripts'));
-  fs.writeFileSync(path.join(root, 'scripts/tools-manifest.json'), JSON.stringify(pinned));
+  fs.writeFileSync(path.join(root, 'scripts/tools-manifest.json'), JSON.stringify(fixturePinned));
   fs.writeFileSync(path.join(root, 'CHANGELOG.md'), '# 更新记录\n\n## 1.2.0\n\nCurrent changes\n\n## 1.1.0\nOld changes\n');
   fs.mkdirSync(path.join(root, 'dist'));
   fs.writeFileSync(path.join(root, 'dist', `m3u8-Studio-${version}-Source.zip`), 'app source fixture');
@@ -19,10 +22,11 @@ function fixture(t) {
     const folder = path.join(root, '.build/release-artifacts', `m3u8-Studio-${target.platform}-${target.arch}`);
     fs.mkdirSync(folder, { recursive: true });
     for (const name of assetNames(version, target)) fs.writeFileSync(path.join(folder, name), name);
+    fs.writeFileSync(path.join(folder, `FFmpeg-${fixturePinned.ffmpegSource.version}-Source.tar.xz`), sourceBytes);
     fs.writeFileSync(path.join(folder, 'tools-manifest.json'), JSON.stringify({
       platform: target.native, arch: target.arch, engineVersion: pinned.engineVersion,
-      ffmpegRelease: pinned.ffmpegVersion, ffmpegBuild: 'ffmpeg version test\nconfiguration: --enable-gpl',
-      assets: pinned.platforms[`${target.platform}-${target.arch}`]
+      ffmpegRelease: `source-${fixturePinned.ffmpegSource.version}`, ffmpegBuild: 'ffmpeg version test\nconfiguration: --disable-autodetect --disable-gpl --disable-nonfree',
+      assets: { engine: pinned.platforms[`${target.platform}-${target.arch}`].engine, ffmpegSource: fixturePinned.ffmpegSource }
     }));
   }
   return root;
@@ -39,11 +43,11 @@ test('assemble all five targets with exact checksums and exclude stale binaries'
   fs.writeFileSync(path.join(root, 'CHANGELOG.md'), fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8').replace(/\n/g, '\r\n'));
   fs.writeFileSync(path.join(root, 'dist', 'm3u8-Studio-1.0.0-Windows.exe'), 'old');
   const assets = prepareRelease({ root, version });
-  assert.equal(assets.length, 12);
+  assert.equal(assets.length, 13);
   const output = path.join(root, '.build/release');
   assert.equal(fs.existsSync(path.join(output, 'm3u8-Studio-1.0.0-Windows.exe')), false);
   const lines = fs.readFileSync(path.join(output, 'SHA256SUMS.txt'), 'utf8').trim().split('\n');
-  assert.equal(lines.length, 11);
+  assert.equal(lines.length, 12);
   for (const line of lines) {
     const [hash, name] = line.split('  ');
     assert.equal(hash, crypto.createHash('sha256').update(fs.readFileSync(path.join(output, name))).digest('hex'));
@@ -70,9 +74,18 @@ test('wrong target manifest or pinned asset cannot enter a release', t => {
   fs.writeFileSync(file, JSON.stringify(manifest));
   assert.throws(() => prepareRelease({ root, version }), /architecture/);
   manifest.arch = 'arm64';
-  manifest.assets.ffmpeg.sha256 = '0'.repeat(64);
+  manifest.assets.ffmpegSource.sha256 = '0'.repeat(64);
   fs.writeFileSync(file, JSON.stringify(manifest));
-  assert.throws(() => prepareRelease({ root, version }), /pinned ffmpeg/);
+  assert.throws(() => prepareRelease({ root, version }), /pinned ffmpegSource/);
+});
+test('missing or incorrect corresponding source prevents binary redistribution', t => {
+  const root = fixture(t);
+  const source = path.join(root, '.build/release-artifacts/m3u8-Studio-win-x64', `FFmpeg-${pinned.ffmpegSource.version}-Source.tar.xz`);
+  fs.writeFileSync(source, 'unrelated source');
+  assert.throws(() => prepareRelease({ root, version }), /corresponding FFmpeg source/);
+  fs.unlinkSync(source);
+  assert.throws(() => prepareRelease({ root, version }), /ENOENT/);
+  assert.equal(fs.existsSync(path.join(root, '.build/release')), false);
 });
 test('missing current changelog stops release before copying packages', t => {
   const root = fixture(t);

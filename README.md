@@ -72,7 +72,7 @@ $env:ELECTRON_MIRROR = 'https://npmmirror.com/mirrors/electron/'
 npm install
 ```
 
-FFmpeg 资源下载较慢时，可在当前终端设置 `M3U8_FFMPEG_MIRROR=https://cdn.npmmirror.com/binaries/ffmpeg-static`。镜像下载仍必须通过同一份上游 SHA-256 校验；该设置只影响开发与构建，发行包运行时不下载工具。
+开发用的预编译 FFmpeg 下载较慢时，可临时设置 `M3U8_FFMPEG_MIRROR=https://cdn.npmmirror.com/binaries/ffmpeg-static`，仍需通过 SHA-256 校验。所有发行构建均从固定版本的官方源码编译 LGPL FFmpeg，关闭 GPL、nonfree 和外部编解码库；成品运行时不下载或编译工具。源码构建需要 C 编译器和 make：Windows 使用 MSYS2 MINGW64，macOS 使用 Xcode Command Line Tools，Linux 使用 GCC / make，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。Apple Silicon 开发启动也使用源码编译，避免使用上游 nonfree 二进制；其他平台开发启动可使用预编译工具。
 
 `npm run build` 构建当前系统与当前 CPU 架构。在目标系统执行以下命令：
 
@@ -87,7 +87,7 @@ FFmpeg 资源下载较慢时，可在当前终端设置 `M3U8_FFMPEG_MIRROR=http
 
 `.github/workflows/build.yml` 配置了 Windows x64、macOS x64 / arm64、Linux x64 / arm64 五个原生构建任务。每个任务运行单元测试、使用官方 v0.6.0-beta 引擎完成本地点播及定时录制测试，构建内置工具的安装包，再在移除开发工具 PATH 的环境中测试点播、定时录制及 MP4 解码，最后上传安装包。普通 push、Pull Request 和手动触发只产生 Actions artifacts。推送与 `package.json` 版本一致的 `v版本` 标签后，五个任务全部通过才会汇总成品、应用源码、工具信息和 SHA-256 校验值，自动创建或更新 **GitHub Release 草稿**。草稿仅维护者可见，正式发布后普通用户才能在 Releases 下载。流程不依赖个人访问令牌，使用当前仓库的 `GITHUB_TOKEN`。
 
-首个仓库上传、版本标签与正式发布步骤见 [docs/RELEASING.md](docs/RELEASING.md)。默认仍执行五个平台的构建与测试；维护者准备好内置 FFmpeg 对应源码并设置仓库变量 `DISTRIBUTION_READY=true` 后，才会上传二进制附件并生成 Release 草稿。应用的 MIT 源码包不能替代第三方对应源码。
+发布步骤见 [docs/RELEASING.md](docs/RELEASING.md)。每个发行构建同时输出 `FFmpeg-6.1.6-Source.tar.xz`；汇总任务核对五个平台的源码与固定 SHA-256，一并提供未修改的官方源码、应用 Source.zip 中的构建脚本和 TOOLS.json 中的构建配置。
 
 当前本机为 Windows，已验证 Windows 的实际下载、定时录制和 UI。macOS / Linux 的兼容代码与构建配置已提供，原生运行及安装包验证需要对应机器或上述 CI，尚不能视为完成实机验收。macOS 默认使用本地 ad-hoc 签名，以满足 Apple Silicon 的运行要求；没有发行用 Developer ID 签名或公证。公开分发前可配置证书，并覆盖 `mac.identity`、启用 `mac.hardenedRuntime` 和公证配置。
 
@@ -110,7 +110,7 @@ npm run test:portable     # 使用打包目录中的工具，移除本机工具 
 - **开发者**：运行 `npm run share:source`，分享 `dist/m3u8-Studio-1.2.0-Source.zip`。解压后安装 Node.js 22+，运行 `npm ci`、`npm start`；首次启动自动准备当前系统的工具。按前述命令构建即可生成成品。
 - 源码分享包使用固定文件白名单，包含源代码、脚本、测试、CI、锁文件和许可说明；不包含 `node_modules`、`.build`、`.smoke`、`artifacts`、已有下载、日志或用户数据。请分享该 ZIP，避免直接压缩整个开发目录。
 - 每位用户的配置、任务和日志分别保存在自己的用户数据目录。内置工具采用相对于当前应用目录的定位方式，自动模式的定时任务不会固定上次便携包的临时解压路径。引擎日志写到任务临时目录，兼容只读安装目录。
-- 项目代码采用 MIT 许可；发行包中的下载引擎、FFmpeg、Electron 各自保留原许可。内置 FFmpeg 附带许可文本和上游构建信息。源码 ZIP 不包含 FFmpeg 及其全部静态依赖的对应源代码；公开重新分发工具二进制时，应同时提供许可要求的对应源代码与构建信息，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- 应用代码采用 MIT 许可；发行包中的引擎、FFmpeg、Electron 保留各自许可。发行 FFmpeg 使用 LGPL 配置，不引入外部编解码库，并提供完整对应源码附件、构建脚本和配置。再分发时保留这些附件和许可文本，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。开发用的旧版预编译工具与此前本地产物使用不同许可，请用当前源码构建生成发行版本。
 
 ## 实现
 
