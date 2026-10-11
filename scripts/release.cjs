@@ -144,5 +144,5 @@ function main() {
 }
 module.exports = { targets, checkTag, assetNames, prepareRelease, createDraft };
 if (require.main === module) {
-  try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
+  try { main(); } catch (error) { console.error(error.message); if(process.env.GITHUB_ACTIONS)console.log(`::error title=Release preparation::${error.message.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A')}`); process.exitCode = 1; }
 }

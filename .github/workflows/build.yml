@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'push' || github.ref_type == 'tag' || !contains(github.event.head_commit.message, '[release-recovery]')
     name: ${{ matrix.platform }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45

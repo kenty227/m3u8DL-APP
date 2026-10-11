@@ -1,0 +1,52 @@
+name: Release recovery
+
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/release.cjs', '.github/workflows/release-recovery.yml']
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Desktop builds run containing five successful native builds
+        required: true
+        type: string
+      tag:
+        description: Existing version tag
+        required: true
+        type: string
+        default: v1.2.0
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  recover:
+    if: github.event_name == 'workflow_dispatch' || (github.repository == 'kenty227/m3u8DL-APP' && contains(github.event.head_commit.message, '[release-recovery]'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.run_id || '38137763517' }}
+      GITHUB_REF_NAME: ${{ inputs.tag || 'v1.2.0' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Verify existing tag and all native build artifacts
+        run: node scripts/verify-release-run.cjs
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BUILD_RUN_ID }}
+          pattern: m3u8-Studio-*
+          path: .build/release-artifacts
+          merge-multiple: false
+      - run: node scripts/release.cjs check-tag
+      - run: npm run share:source
+      - run: npm run release:prepare
+      - run: node scripts/release.cjs create-draft
+      - run: node scripts/release.cjs publish-preview
