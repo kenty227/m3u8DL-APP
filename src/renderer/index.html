@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>m3u8 Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-icon" data-icon="download"></div><div>m3u8<span>STUDIO</span></div></div>
+    <div class="workspace-label">工作空间</div>
+    <nav aria-label="主导航">
+      <button class="nav-item active" data-page="download"><span data-icon="download"></span>单次下载<span class="nav-count" id="download-count">0</span></button>
+      <button class="nav-item" data-page="schedule"><span data-icon="calendar"></span>定时下载<span class="nav-count" id="schedule-count">0</span></button>
+      <button class="nav-item" data-page="settings"><span data-icon="settings"></span>设置</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="engine-card"><span class="status-dot" id="engine-dot"></span><div><strong id="engine-label">正在检测引擎</strong><small>N_m3u8DL-RE</small></div><button class="icon-button" id="refresh-engine" title="重新检测引擎" aria-label="重新检测引擎" data-icon="refresh"></button></div>
+      <button class="official-link" id="official-link">开源项目 <span data-icon="external"></span></button>
+      <div class="app-version">m3u8 Studio <span>v1.2.0</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar"><span id="breadcrumb">工作空间 <b>/</b> 单次下载</span><div class="topbar-right"><span class="local-badge"><i></i>本地运行</span><span class="topbar-icon" data-icon="shield"></span></div></div>
+    <div class="content">
+      <section id="page-download" class="page active">
+        <header class="page-header"><div><div class="eyebrow">DOWNLOAD</div><h1>单次下载</h1><p>粘贴媒体链接，把精彩内容保存到本地。</p></div><button class="button secondary" id="open-download-folder"><span data-icon="folder"></span>打开下载目录</button></header>
+        <div class="notice hidden" id="engine-notice"></div>
+        <div class="card composer">
+          <div class="section-heading"><h2><span class="small-symbol" data-icon="link"></span>媒体链接</h2><span class="muted">支持批量添加</span></div>
+          <label class="sr-only" for="download-urls">m3u8 媒体链接，每行一个</label>
+          <textarea id="download-urls" placeholder="粘贴一个或多个 m3u8 链接，每行一个&#10;https://example.com/video/playlist.m3u8" spellcheck="false" rows="4"></textarea>
+          <div class="input-footer"><span><span data-icon="info"></span>支持 HTTP / HTTPS 链接，每个链接创建独立任务</span><span id="url-count">0 个链接</span></div>
+          <details class="parameter-details" id="download-details"><summary><div><span data-icon="sliders"></span><strong>下载参数</strong><span class="summary-sub">为本次下载调整参数</span></div><div class="summary-right"><span class="param-chip">自动选流</span><span class="param-chip">MP4</span><span class="chevron" data-icon="chevron"></span></div></summary><div class="details-content"><div class="parameter-editor" id="download-parameters"></div><div class="field"><label for="download-output">本次下载目录 <span class="optional">可选</span></label><div class="path-input"><input id="download-output" placeholder="留空使用默认下载目录"><button class="button secondary" data-pick="download-output" data-kind="directory" aria-label="选择本次下载目录" data-icon="folder"></button></div></div><div class="hint">未指定轨道筛选时，引擎会自动选择最佳轨道，避免等待交互输入。</div></div></details>
+          <div class="composer-actions"><span class="save-location"><span data-icon="folder"></span><span id="default-location">默认下载目录</span></span><button class="button primary" id="start-download"><span data-icon="download"></span>开始下载</button></div>
+        </div>
+        <div class="list-heading"><h2>下载任务 <span class="count-badge" id="task-total">0</span></h2><div class="filters" id="download-filters"><button class="selected" data-filter="all">全部</button><button data-filter="active">进行中</button><button data-filter="completed">已完成</button></div></div>
+        <div id="download-list" class="task-list"></div>
+      </section>
+
+      <section id="page-schedule" class="page">
+        <header class="page-header"><div><div class="eyebrow">SCHEDULE</div><h1>定时下载</h1><p>安排录制时间，让每一场直播都有留存。</p></div><span class="timezone-badge" id="timezone-label"></span></header>
+        <div class="notice neutral"><span data-icon="info"></span><span>关闭窗口后继续在后台运行，可从托盘、Dock 或任务栏打开。定时任务需要应用运行、电脑保持唤醒；已过期的时间段会自动跳过。</span></div>
+        <div class="card composer">
+          <div class="section-heading"><h2><span class="small-symbol" data-icon="calendar"></span>新建定时任务</h2></div>
+          <div class="schedule-fields"><div class="field"><label for="schedule-title">任务名称 <span class="optional">可选</span></label><input id="schedule-title" maxlength="80" placeholder="例如：周末音乐现场"></div><div class="field"><label for="schedule-url">媒体链接</label><input id="schedule-url" placeholder="https://example.com/live/playlist.m3u8" spellcheck="false"></div></div>
+          <div class="time-heading"><label>录制时间段</label><span class="muted">可添加多组时间，支持跨天</span></div>
+          <div id="time-windows"></div>
+          <button class="text-button" id="add-window"><span data-icon="plus"></span>添加时间段</button>
+          <details class="parameter-details"><summary><div><span data-icon="sliders"></span><strong>录制参数</strong><span class="summary-sub">使用默认下载参数</span></div><span class="chevron" data-icon="chevron"></span></summary><div class="details-content"><div class="parameter-editor" id="schedule-parameters"></div><div class="field"><label for="schedule-output">录制目录 <span class="optional">可选</span></label><div class="path-input"><input id="schedule-output" placeholder="留空使用默认下载目录"><button class="button secondary" data-pick="schedule-output" data-kind="directory" aria-label="选择录制目录" data-icon="folder"></button></div></div><div class="hint">每个时间段生成独立文件。录制时长与开始等待参数由调度器管理。</div></div></details>
+          <div class="composer-actions"><span class="save-location"><span data-icon="clock"></span>到时自动开始 · 结束后合并</span><button class="button primary" id="save-schedule"><span data-icon="plus"></span>添加定时任务</button></div>
+        </div>
+        <div class="list-heading"><h2>定时任务 <span class="count-badge" id="schedule-total">0</span></h2><span class="muted">按开始时间排列</span></div><div id="schedule-list" class="task-list"></div>
+      </section>
+
+      <section id="page-settings" class="page">
+        <header class="page-header"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>配置下载引擎与默认参数，让每次下载更顺手。</p></div><button class="button primary" id="save-settings"><span data-icon="check"></span>保存设置</button></header>
+        <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="box"></span>下载引擎</h2><span class="tag">N_m3u8DL-RE</span></div><div class="field"><label for="engine-path">引擎可执行文件</label><div class="path-input"><input id="engine-path" placeholder="留空使用内置 N_m3u8DL-RE"><button class="button secondary" data-pick="engine-path" data-kind="executable">浏览</button></div></div><div class="field"><label for="ffmpeg-path">FFmpeg 可执行文件</label><div class="path-input"><input id="ffmpeg-path" placeholder="留空使用内置 FFmpeg"><button class="button secondary" data-pick="ffmpeg-path" data-kind="executable">浏览</button></div><div class="hint">用于将音视频混流为 MP4 等格式。</div></div><div class="engine-check"><span id="engine-check-result">正在检测…</span><button class="text-button" id="test-engine"><span data-icon="refresh"></span>检测配置</button></div></div>
+        <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="folder"></span>下载偏好</h2></div><div class="field"><label for="settings-output">默认下载目录</label><div class="path-input"><input id="settings-output"><button class="button secondary" data-pick="settings-output" data-kind="directory">浏览</button></div></div><div class="field inline-field"><div><label for="max-concurrent">同时下载任务数</label><div class="hint">点播任务按队列执行；定时录制独立按时启动。</div></div><select id="max-concurrent"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div></div>
+        <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="sliders"></span>默认下载参数</h2><button class="text-button" id="reset-parameters">恢复推荐值</button></div><p class="card-description">新建下载与定时任务会使用这些参数。可搜索引擎支持的选项，也可直接输入自定义参数。</p><div class="parameter-editor" id="settings-parameters"></div></div>
+        <div class="settings-note"><span data-icon="shield"></span>配置与任务记录保存在本机。关闭窗口继续在后台运行，可从应用菜单或托盘菜单完全退出（Ctrl / ⌘ + Q）。</div>
+      </section>
+      <footer class="footer"><span>由 N_m3u8DL-RE 驱动</span><span>把时间留给内容。</span></footer>
+    </div>
+  </main>
+  <dialog id="logs-dialog"><div class="dialog-header"><div><h2>任务日志</h2><p id="logs-subtitle"></p></div><button class="icon-button" id="close-logs" title="关闭日志" aria-label="关闭日志" data-icon="x"></button></div><pre id="logs-content"></pre><div class="dialog-footer"><span id="logs-status"></span><button class="button secondary" id="copy-logs"><span data-icon="copy"></span>复制日志</button></div></dialog>
+  <div id="toasts" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

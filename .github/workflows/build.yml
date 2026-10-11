@@ -1,0 +1,120 @@
+name: Desktop builds
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: macos-15-intel
+            platform: mac
+            arch: x64
+          - os: macos-15
+            platform: mac
+            arch: arm64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+    env:
+      # macOS ARM still receives the mandatory ad-hoc signature from the builder.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Check release tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/release.cjs check-tag
+      - run: npm test
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install FFmpeg and packaging tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libfuse2 libarchive-tools
+      - name: Install official engine for integration tests
+        run: node scripts/ci-engine.cjs
+      - run: node scripts/build-native.cjs
+      - name: Verify real VOD and timed recording
+        run: npm run smoke
+      - run: npm run build -- --${{ matrix.platform }} --${{ matrix.arch }}
+      - name: Verify packaged tools without developer tool paths
+        run: npm run test:portable
+      - name: Include pinned tool and license build information
+        run: node scripts/release.cjs export-tools --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+      - uses: actions/upload-artifact@v7
+        # Do not publicly redistribute bundled FFmpeg before its corresponding
+        # sources are available. See docs/RELEASING.md for this repository variable.
+        if: vars.DISTRIBUTION_READY == 'true'
+        with:
+          name: m3u8-Studio-${{ matrix.platform }}-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/tools-manifest.json
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-logs-${{ matrix.platform }}-${{ matrix.arch }}
+          path: .smoke/*.log
+          if-no-files-found: ignore
+
+  release:
+    name: Prepare GitHub Release draft
+    if: startsWith(github.ref, 'refs/tags/v') && vars.DISTRIBUTION_READY == 'true'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: m3u8-Studio-*
+          path: .build/release-artifacts
+          merge-multiple: false
+      - run: node scripts/release.cjs check-tag
+      - run: npm run share:source
+      - run: npm run release:prepare
+      - name: Create or update draft with all five tested targets
+        run: node scripts/release.cjs create-draft

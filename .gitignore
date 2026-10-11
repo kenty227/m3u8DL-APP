@@ -1,0 +1,15 @@
+node_modules/
+dist/
+native/runner.exe
+.smoke/
+.build/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.pem
+*.p12
+*.pfx
