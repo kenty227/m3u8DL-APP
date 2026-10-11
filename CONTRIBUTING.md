@@ -17,7 +17,7 @@ npm start
 
 首次启动会联网准备锁定版本的 Electron 和当前系统的工具，下载资源通过 SHA-256 校验，缓存到项目 `.build`。Windows / Linux / Intel Mac 开发启动使用预编译工具；Apple Silicon 自动从官方源码编译 FFmpeg，需要 Xcode Command Line Tools。无需作者电脑的安装路径或用户配置。Windows 使用系统 .NET Framework 的 C# 编译器生成控制组件，无需 .NET SDK；macOS / Linux 不使用该组件。
 
-Git 不包含 `node_modules`、构建缓存、原生生成文件、安装包、下载媒体、日志和用户任务。依赖版本由 `package-lock.json` 锁定，使用 `npm ci` 重建。FFmpeg 镜像只在上游慢时按 README 临时配置，不写入仓库或用户设置。
+Git 不包含 `node_modules`、构建缓存、原生生成文件、安装包、下载媒体、日志和用户任务。依赖版本由 `package-lock.json` 锁定，使用 `npm ci` 重建。开发用预编译 FFmpeg 下载较慢时，可在当前终端临时设置 `M3U8_FFMPEG_MIRROR=https://cdn.npmmirror.com/binaries/ffmpeg-static`，下载仍需通过 SHA-256 校验；该设置不写入仓库或用户配置，不影响发行版的官方源码编译流程。
 
 ## 代码结构
 
