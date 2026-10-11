@@ -3,7 +3,7 @@ const {checkTag,targets}=require('./release.cjs');
 async function main(){
   const repo=process.env.GITHUB_REPOSITORY;
   const run=process.env.BUILD_RUN_ID;
-  const tag=checkTag(process.env.GITHUB_REF_NAME,require('../package.json').version);
+  const tag=checkTag(process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME,require('../package.json').version);
   if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo||'') || !/^\d+$/.test(run||''))throw new Error('Invalid repository or build run');
   const tagSha=execFileSync('git',['rev-parse',`${tag}^{}`],{encoding:'utf8'}).trim();
   const headers={'User-Agent':'m3u8-Studio',Authorization:`Bearer ${process.env.GH_TOKEN}`};

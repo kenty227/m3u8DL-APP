@@ -28,7 +28,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       BUILD_RUN_ID: ${{ inputs.run_id || '38137763517' }}
-      GITHUB_REF_NAME: ${{ inputs.tag || 'v1.2.0' }}
+      RELEASE_TAG: ${{ inputs.tag || 'v1.2.0' }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -129,17 +129,18 @@ function publishPreview({ root, version, repo, tag }) {
 function main() {
   const root = path.resolve(__dirname, '..');
   const version = require('../package.json').version;
+  const releaseTag = process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME;
   const [command, ...args] = process.argv.slice(2);
   const option = name => args.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-  if (command === 'check-tag') console.log(checkTag(process.env.GITHUB_REF_NAME || option('tag'), version));
+  if (command === 'check-tag') console.log(checkTag(releaseTag || option('tag'), version));
   else if (command === 'export-tools') {
     const target = targets.find(item => item.platform === option('platform') && item.arch === option('arch'));
     if (!target) throw new Error('Unsupported target');
     fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
     fs.copyFileSync(path.join(bundleDirectory(root, target.native, target.arch), 'manifest.json'), path.join(root, 'dist/tools-manifest.json'));
   } else if (command === 'prepare') console.log(`Prepared ${prepareRelease({ root, version }).length} release attachments`);
-  else if (command === 'create-draft') createDraft({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: process.env.GITHUB_REF_NAME });
-  else if (command === 'publish-preview') publishPreview({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: process.env.GITHUB_REF_NAME });
+  else if (command === 'create-draft') createDraft({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: releaseTag });
+  else if (command === 'publish-preview') publishPreview({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: releaseTag });
   else throw new Error('Usage: release.cjs check-tag | export-tools --platform=win --arch=x64 | prepare | create-draft | publish-preview');
 }
 module.exports = { targets, checkTag, assetNames, prepareRelease, createDraft };
