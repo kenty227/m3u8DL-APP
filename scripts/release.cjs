@@ -18,7 +18,12 @@ function checkTag(tag, version) {
   return tag;
 }
 function assetNames(version, target) {
-  return target.extensions.map(ext => `m3u8-Studio-${version}-${target.label}.${ext}`);
+  return target.extensions.map(ext => {
+    // electron-builder uses package-format architecture names on Linux x64.
+    const label = target.platform === 'linux' && target.arch === 'x64'
+      ? `Linux-${ext === 'deb' ? 'amd64' : 'x86_64'}` : target.label;
+    return `m3u8-Studio-${version}-${label}.${ext}`;
+  });
 }
 function requireFile(file) {
   if (!fs.existsSync(file)) {

@@ -37,6 +37,13 @@ test('release tag must identify this package version, including prereleases', ()
   assert.throws(() => checkTag('v1.1.0', version), /must be v1.2.0/);
   assert.throws(() => checkTag('v1.2.0;injected', version));
 });
+test('Linux x64 artifact names match electron-builder format architecture aliases', () => {
+  const target = targets.find(target => target.platform === 'linux' && target.arch === 'x64');
+  assert.deepEqual(assetNames(version, target), [
+    'm3u8-Studio-1.2.0-Linux-x86_64.AppImage',
+    'm3u8-Studio-1.2.0-Linux-amd64.deb'
+  ]);
+});
 test('assemble all five targets with exact checksums and exclude stale binaries', t => {
   const root = fixture(t);
   // Maintainers may edit the changelog on Windows with CRLF line endings.
