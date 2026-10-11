@@ -102,7 +102,7 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    name: Prepare GitHub Release draft
+    name: Publish GitHub preview release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
@@ -126,3 +126,5 @@ jobs:
       - run: npm run release:prepare
       - name: Create or update draft with all five tested targets
         run: node scripts/release.cjs create-draft
+      - name: Publish preview after verifying all packages and corresponding sources
+        run: node scripts/release.cjs publish-preview

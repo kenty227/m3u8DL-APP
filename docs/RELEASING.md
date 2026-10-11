@@ -23,7 +23,7 @@ Actions 的 **Desktop builds** 在 Windows x64、macOS x64 / arm64、Linux x64 /
 
 普通分支、PR 和手动运行上传 Actions artifacts。每个平台的 artifact 同时包含安装包、tools-manifest.json 和完整 FFmpeg 对应源码。测试媒体生成使用 CI 的开发工具；真实下载、定时停止、混流和 MP4 解码使用打包工具，并移除开发工具 PATH。
 
-## 创建 Release 草稿
+## 创建预发布 Release
 
 更新 `package.json` 和锁文件的版本，例如 `npm version 1.2.1 --no-git-tag-version`，并在 CHANGELOG.md 添加 `## 1.2.1`。提交并推送代码，确认主分支 CI 正常，然后推送完全一致的版本标签：
 
@@ -44,7 +44,7 @@ git push origin v1.2.0
 
 流程仅在汇总任务使用 `contents: write`，通过当前仓库 `GITHUB_TOKEN` 操作，无需个人令牌。Fork 的标签在 Fork 自己的仓库生成草稿。组织策略限制 Actions 或 token 写入时，需要维护者在组织配置中允许对应功能。
 
-重跑会替换同版本草稿附件和说明，拒绝替换已正式发布的 Release。已发布版本修复需要增加版本号。草稿只对维护者可见；在 Releases 查看附件、说明和测试结果，确认后点击 **Publish release**，普通用户即可下载。
+流程先建立草稿、上传全部附件，然后核对十三个必要附件完整，自动公开为 **Pre-release**，普通用户即可下载。完整桌面验收后维护者可编辑 Release，取消预发布并标记为 Latest。重跑只能替换未公开的草稿，拒绝替换已经公开的版本；已发布版本修复需要增加版本号。
 
 ## 分发与桌面验收
 

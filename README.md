@@ -16,7 +16,7 @@
 
 成品包含 Electron、N_m3u8DL-RE 和 FFmpeg，**无需安装 Node.js 或手动配置下载工具**。GitHub 自动生成的 “Source code” 和项目的 `Source.zip` 用于开发，普通用户选择上表的成品文件。所有成品都使用各自系统提供的基础运行库。macOS 当前使用 ad-hoc 签名，尚未 Developer ID 签名或公证，可能被 Gatekeeper 阻止。
 
-Windows 的实际下载、定时录制和界面已在本机验证；macOS / Linux 已配置原生 CI 构建与媒体集成测试，尚待首次 GitHub CI 和实际桌面启动验收。支持系统与架构不代表兼容所有旧版系统或 Linux 发行版。
+Windows 的实际下载、定时录制和界面已在本机验证；五个系统/架构已通过 GitHub 原生构建、实际下载、定时录制和打包后 MP4 解码测试。macOS / Linux 的完整桌面操作仍待实机验收，因此初期 Release 标记为预发布。支持系统与架构不代表兼容所有旧版系统或 Linux 发行版；Linux 构建以 Ubuntu 24.04 为基准。
 
 Linux AppImage 示例：
 

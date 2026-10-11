@@ -112,6 +112,20 @@ function createDraft({ root, version, repo, tag }) {
   }
   console.log(result.stdout || `Updated draft ${repo} ${tag}`);
 }
+function publishPreview({ root, version, repo, tag }) {
+  checkTag(tag, version);
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '')) throw new Error('GITHUB_REPOSITORY must identify OWNER/REPO');
+  const info = gh(['release', 'view', tag, '--repo', repo, '--json', 'isDraft,assets']);
+  if (info.status !== 0) throw new Error(info.stderr || 'Unable to inspect release draft');
+  const draft = JSON.parse(info.stdout);
+  if (!draft.isDraft) throw new Error('Only a prepared draft can be published by this command.');
+  const folder = path.join(root, '.build/release');
+  const expected = fs.readFileSync(path.join(folder, 'SHA256SUMS.txt'), 'utf8').trim().split('\n').map(line => line.split('  ')[1]).concat('SHA256SUMS.txt');
+  if (expected.length !== 13 || expected.some(name => !draft.assets.some(asset => asset.name === name))) throw new Error('Release is missing required packages, sources or checksums.');
+  const result = gh(['release', 'edit', tag, '--repo', repo, '--draft=false', '--prerelease', '--latest=false']);
+  if (result.status !== 0) throw new Error(result.stderr || 'Unable to publish preview');
+  console.log(`Published preview: https://github.com/${repo}/releases/tag/${tag}`);
+}
 function main() {
   const root = path.resolve(__dirname, '..');
   const version = require('../package.json').version;
@@ -125,7 +139,8 @@ function main() {
     fs.copyFileSync(path.join(bundleDirectory(root, target.native, target.arch), 'manifest.json'), path.join(root, 'dist/tools-manifest.json'));
   } else if (command === 'prepare') console.log(`Prepared ${prepareRelease({ root, version }).length} release attachments`);
   else if (command === 'create-draft') createDraft({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: process.env.GITHUB_REF_NAME });
-  else throw new Error('Usage: release.cjs check-tag | export-tools --platform=win --arch=x64 | prepare | create-draft');
+  else if (command === 'publish-preview') publishPreview({ root, version, repo: process.env.GITHUB_REPOSITORY, tag: process.env.GITHUB_REF_NAME });
+  else throw new Error('Usage: release.cjs check-tag | export-tools --platform=win --arch=x64 | prepare | create-draft | publish-preview');
 }
 module.exports = { targets, checkTag, assetNames, prepareRelease, createDraft };
 if (require.main === module) {
