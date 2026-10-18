@@ -66,3 +66,36 @@ test('scheduled recording owns time limits and unique names, disabled parameters
   assert.ok(!args.includes('--task-start-at')); assert.ok(!args.includes('--thread-count'));
   assert.match(args[args.indexOf('--save-name')+1],/^我的录制_.*abc12345$/);
 });
+
+test('schedule defaults preserve custom options while disabling automatic merging without mutating settings',()=>{
+  const parameters=[...structuredClone(core.DEFAULT_PARAMETERS),
+    {name:'--live-real-time-merge',value:'',enabled:true},
+    {name:'--live-pipe-mux',value:'',enabled:true},
+    {name:'--skip-merge',value:'false',enabled:true},
+    {name:'--live-keep-segments',value:'false',enabled:true},
+    {name:'--del-after-done',value:'',enabled:true},
+    {name:'-H',value:'Referer: https://a.test',enabled:true}];
+  const original=structuredClone(parameters);
+  const defaults=core.scheduleParameters(parameters,catalog);
+  const job={id:'abc12345',url:'https://a.test/live',outputDir:'output',tempDir:'segments',startAt:'2026-10-11T10:00:00Z',endAt:'2026-10-11T11:00:00Z',parameters:defaults};
+  const args=core.buildArgs(job,{},catalog);
+  for(const name of ['-M','--mux-after-done','--live-real-time-merge','--live-pipe-mux'])assert.ok(!args.includes(name),name);
+  assert.ok(args.includes('--skip-merge'));assert.ok(args.includes('--live-keep-segments'));
+  assert.equal(args[args.indexOf('--del-after-done')+1],'false');
+  assert.ok(args.includes('Referer: https://a.test'));
+  assert.deepEqual(parameters,original);
+});
+
+test('scheduled tasks honor explicit merge choices and skip-merge suppresses final mux arguments',()=>{
+  const job={id:'abc12345',url:'https://a.test/live',outputDir:'output',tempDir:'segments',startAt:'2026-10-11T10:00:00Z',endAt:'2026-10-11T11:00:00Z',parameters:[...core.DEFAULT_PARAMETERS,{name:'--live-real-time-merge',value:'false',enabled:true}]};
+  let args=core.buildArgs(job,{},catalog);
+  assert.equal(args[args.indexOf('--live-real-time-merge')+1],'false');
+  assert.ok(args.includes('-M'));
+  job.parameters.push({name:'--skip-merge',value:'',enabled:true});
+  args=core.buildArgs(job,{},catalog);
+  assert.ok(!args.includes('-M'));
+  job.parameters.at(-1).value='false';
+  assert.ok(core.buildArgs(job,{},catalog).includes('-M'));
+  job.parameters.at(-1).enabled=false;
+  assert.ok(core.buildArgs(job,{},catalog).includes('-M'));
+});

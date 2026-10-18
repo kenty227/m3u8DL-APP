@@ -71,6 +71,26 @@ function canonical(name, catalog) {
   return catalog.find(x => x.aliases.includes(name))?.name || name;
 }
 
+function scheduleParameters(parameters, catalog = FALLBACK_OPTIONS) {
+  const rows = validateParameters(parameters);
+  for (const row of rows) {
+    if (['--mux-after-done', '--live-real-time-merge', '--live-pipe-mux'].includes(canonical(row.name, catalog))) row.enabled = false;
+  }
+  if (!rows.some(p => canonical(p.name, catalog) === '--live-real-time-merge')) {
+    rows.push({ name: '--live-real-time-merge', value: '', enabled: false });
+  }
+  for (const [name, value] of [['--skip-merge', ''], ['--live-keep-segments', ''], ['--del-after-done', 'false']]) {
+    for (let i = rows.length - 1; i >= 0; i--) if (canonical(rows[i].name, catalog) === name) rows.splice(i, 1);
+    rows.push({ name, value, enabled: true });
+  }
+  return rows;
+}
+
+function skipsMerge(parameters, catalog = FALLBACK_OPTIONS) {
+  const option = parameters.findLast(p => p.enabled && canonical(p.name, catalog) === '--skip-merge');
+  return Boolean(option && option.value !== 'false');
+}
+
 function validateDownloadParameters(parameters, catalog) {
   const rows = validateParameters(parameters);
   for (const row of rows.filter(p => p.enabled)) {
@@ -92,9 +112,10 @@ function buildArgs(job, settings, catalog, now = Date.now()) {
   const overridden = new Set(['--save-dir', '--tmp-dir']);
   if (settings.ffmpegPath) overridden.add('--ffmpeg-binary-path');
   if (isScheduled) {
-    for (const name of ['--live-record-limit', '--task-start-at', '--save-name', '--live-real-time-merge']) overridden.add(name);
+    for (const name of ['--live-record-limit', '--task-start-at', '--save-name']) overridden.add(name);
   }
   if(job.batch) overridden.add('--save-name');
+  if (skipsMerge(parameters, catalog)) overridden.add('--mux-after-done');
   const args = [validateUrl(job.url)];
   for (const p of parameters) {
     if (overridden.has(canonical(p.name, catalog))) continue;
@@ -108,8 +129,6 @@ function buildArgs(job, settings, catalog, now = Date.now()) {
   }
   if (settings.ffmpegPath) args.push('--ffmpeg-binary-path', settings.ffmpegPath);
   if (isScheduled) {
-    // Some older engines do not produce a final file when recording without real-time merge.
-    args.push('--live-real-time-merge');
     // Recording duration measures media time, not wall-clock time; the scheduler
     // owns the deadline so historical segments cannot finish the task early.
     const date = new Date(job.startAt).toISOString().replace(/[:.]/g, '-');
@@ -160,4 +179,4 @@ function scheduleAction(job, now) {
   return null;
 }
 
-module.exports = { DEFAULT_PARAMETERS, FALLBACK_OPTIONS, parseHelp, parseUrls, validateUrl, validateParameters, validateDownloadParameters, validateWindows, buildArgs, durationString, makeJob, scheduleAction, canonical };
+module.exports = { DEFAULT_PARAMETERS, FALLBACK_OPTIONS, parseHelp, parseUrls, validateUrl, validateParameters, validateDownloadParameters, validateWindows, buildArgs, durationString, makeJob, scheduleAction, canonical, scheduleParameters, skipsMerge };

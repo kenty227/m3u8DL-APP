@@ -43,7 +43,7 @@ class DownloadService extends EventEmitter {
   }
 
   snapshot() {
-    return { platform: this.platform, settings: structuredClone(this.settings), jobs: structuredClone(this.jobs), catalog: this.catalog, engine: this.engineInfo, warning: this.startupWarning || '' };
+    return { platform: this.platform, settings: structuredClone(this.settings), scheduleParameters: core.scheduleParameters(this.settings.parameters, this.catalog), jobs: structuredClone(this.jobs), catalog: this.catalog, engine: this.engineInfo, warning: this.startupWarning || '' };
   }
 
   persist() {
@@ -125,7 +125,7 @@ class DownloadService extends EventEmitter {
 
   ensureEngine(parameters) {
     if (!this.engineInfo.available) throw new Error(this.engineInfo.error || '请先在设置中配置下载引擎。');
-    if (parameters.some(p => p.enabled && core.canonical(p.name, this.catalog) === '--mux-after-done' && !p.value.includes('muxer=mkvmerge')) && !this.engineInfo.ffmpegAvailable) throw new Error('MP4 混流需要 FFmpeg，请在设置中选择 FFmpeg 可执行文件。');
+    if (!core.skipsMerge(parameters, this.catalog) && parameters.some(p => p.enabled && core.canonical(p.name, this.catalog) === '--mux-after-done' && !p.value.includes('muxer=mkvmerge')) && !this.engineInfo.ffmpegAvailable) throw new Error('MP4 混流需要 FFmpeg，请在设置中选择 FFmpeg 可执行文件。');
   }
 
   addDownloads(input) {
@@ -134,20 +134,20 @@ class DownloadService extends EventEmitter {
     this.ensureEngine(parameters);
     const outputDir = this.resolveOutput(input.outputDir, parameters);
     const jobs = urls.map(url => core.makeJob({ url, batch: urls.length > 1, parameters: structuredClone(parameters), outputDir, enginePath: this.settings.enginePath, ffmpegPath: this.settings.ffmpegPath }));
-    for (const job of jobs) job.tempDir = path.join(this.dataDir, 'temp', job.id);
+    for (const job of jobs) job.tempDir = path.join(outputDir, `segments_${job.id}`);
     this.jobs.unshift(...jobs.reverse()); this.changed(); this.tick(); return [...jobs].reverse().map(j => j.id);
   }
 
   addSchedule(input) {
     const url = core.validateUrl(input.url);
     const windows = core.validateWindows(input.windows, this.clock());
-    const parameters = core.validateDownloadParameters(input.parameters || this.settings.parameters, this.catalog);
+    const parameters = core.validateDownloadParameters(input.parameters || core.scheduleParameters(this.settings.parameters, this.catalog), this.catalog);
     if (parameters.some(p => p.enabled && core.canonical(p.name, this.catalog) === '--live-perform-as-vod' && p.value !== 'false')) throw new Error('定时录制不能使用 --live-perform-as-vod，请关闭该参数。');
     this.ensureEngine(parameters);
     const outputDir = this.resolveOutput(input.outputDir, parameters);
     const groupId = randomUUID();
     const jobs = windows.map(w => core.makeJob({ ...w, groupId, title: String(input.title || '').trim().slice(0, 80), url, status: 'scheduled', parameters: structuredClone(parameters), outputDir, enginePath: this.settings.enginePath, ffmpegPath: this.settings.ffmpegPath }));
-    for (const job of jobs) job.tempDir = path.join(this.dataDir, 'temp', job.id);
+    for (const job of jobs) job.tempDir = path.join(outputDir, `segments_${job.id}`);
     this.jobs.unshift(...jobs); this.changed(); return groupId;
   }
 
@@ -210,12 +210,12 @@ class DownloadService extends EventEmitter {
     entry.finishing = true;
     clearTimeout(entry.timeout);
     // Some engine versions terminate on SIGINT instead of running the mux step.
-    // Only normalize an intentional interrupt after finalizing its own tracks.
+    // Normalize an intentional interrupt after honoring the task's merge policy.
     const interrupted = signal === 'SIGINT' || code === 130 || code === 0xC000013A;
     if (job.endAt && (/Force Exit/i.test(job.logs) || (interrupted && entry.reason)) && entry.reason !== 'forced' && !error) {
       job.status = 'stopping';
       try {
-        await this.finalizeRecording(job);
+        if (!core.skipsMerge(job.parameters, this.catalog)) await this.finalizeRecording(job);
         if (interrupted && entry.reason === 'scheduled') code = 0;
       }
       catch (failure) { error = `录制已停止，但最终合并失败：${failure.message}；原始媒体保留在下载目录。`; }
@@ -233,6 +233,7 @@ class DownloadService extends EventEmitter {
   }
 
   async finalizeRecording(job) {
+    if (core.skipsMerge(job.parameters, this.catalog)) return;
     const mux = job.parameters.findLast(p => p.enabled && core.canonical(p.name, this.catalog) === '--mux-after-done');
     if (!mux) return;
     const format = mux.value.match(/(?:^|:)format=(mp4|mkv|ts)(?:$|:)/)?.[1] || 'mkv';
@@ -271,7 +272,7 @@ class DownloadService extends EventEmitter {
     const entry = this.processes.get(id);
     if (!entry || job.status === 'stopping') return;
     entry.reason = reason; job.status = 'stopping';
-    job.logs += '\n正在停止录制并等待引擎合并文件…\n';
+    job.logs += core.skipsMerge(job.parameters, this.catalog) ? '\n正在停止下载并保留分片…\n' : '\n正在停止下载并等待引擎退出…\n';
     if (entry.native) entry.child.stdin.write('stop\n');
     else {
       try { stopProcessGroup(entry.child, 'SIGINT', this.killProcess); }

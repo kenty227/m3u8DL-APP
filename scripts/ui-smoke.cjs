@@ -91,8 +91,13 @@ const server=http.createServer((req,res)=>{
   for(const job of downloaded)assert.ok(outputFiles.some(file=>file.endsWith('.mp4')&&file.includes(job.id.slice(0,8))),'Each batch task needs a separate MP4 file');
   await screenshot('downloads-completed');
   await evaluate(`document.querySelector('[data-page=schedule]').click();document.getElementById('schedule-title').value='本地录制计划';document.getElementById('schedule-url').value=${JSON.stringify(base+'/test.m3u8')};document.getElementById('add-window').click();`);await screenshot('schedule-form');
+  const scheduleParameters=await evaluate(`readParameters('schedule-parameters')`);
+  assert.ok(scheduleParameters.some(p=>p.name==='--skip-merge'&&p.enabled));
+  assert.ok(!scheduleParameters.some(p=>['-M','--mux-after-done','--live-real-time-merge','--live-pipe-mux'].includes(p.name)&&p.enabled));
   await evaluate(`document.getElementById('save-schedule').click();`);
   await until(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled').length===2)`);
+  const scheduled=await evaluate(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled'))`);
+  for(const job of scheduled){assert.deepEqual(job.parameters,scheduleParameters);assert.equal(path.dirname(job.tempDir),job.outputDir);}
   await screenshot('schedule');
   await evaluate(`document.querySelector('#schedule-list [data-action=stop]').click();`);
   await until(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled').length===1)`);

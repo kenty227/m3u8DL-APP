@@ -20,7 +20,7 @@ const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 function fillIcons(element = document) { element.querySelectorAll('[data-icon]').forEach(node => { node.innerHTML = icon(node.dataset.icon); }); }
 const escapeHTML = text => String(text ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 let state, activePage = 'download', filter = 'all', logJobId = null;
-const statuses = { queued:'等待下载', scheduled:'等待开始', running:'下载中', stopping:'正在合并 / 停止', completed:'已完成', cancelled:'已停止', failed:'失败', interrupted:'已中断', missed:'已过期' };
+const statuses = { queued:'等待下载', scheduled:'等待开始', running:'下载中', stopping:'正在停止', completed:'已完成', cancelled:'已停止', failed:'失败', interrupted:'已中断', missed:'已过期' };
 const activeStatuses = ['queued', 'running', 'stopping'];
 const recommended = [{ name:'--auto-select', value:'', enabled:true }, { name:'-M', value:'format=mp4', enabled:true }];
 
@@ -113,7 +113,8 @@ function applySettings() {
   $('ffmpeg-path').value = state.settings.ffmpegPath;
   $('settings-output').value = state.settings.downloadDir;
   $('max-concurrent').value = state.settings.maxConcurrent;
-  for (const id of ['download-parameters','schedule-parameters','settings-parameters']) parameterEditor(id, state.settings.parameters);
+  for (const id of ['download-parameters','settings-parameters']) parameterEditor(id, state.settings.parameters);
+  parameterEditor('schedule-parameters', state.scheduleParameters);
 }
 
 function localDatetime(date) {

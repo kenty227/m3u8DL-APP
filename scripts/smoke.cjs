@@ -53,11 +53,27 @@ async function waitJob(service,id,timeout=45000){
     // Assert the actual scheduler deadline uses the real Ctrl+C bridge.
     let reachedStopping = false;
     service.on('change',()=> { if(service.jobs.some(j=>j.status==='stopping'))reachedStopping=true; });
-    const group=service.addSchedule({url:base+'/live.m3u8',title:'本地定时录制测试',windows:[{startAt,endAt}],parameters:[...service.settings.parameters,{name:'--live-wait-time',value:'1',enabled:true}]});
+    const group=service.addSchedule({url:base+'/live.m3u8',title:'显式启用合并测试',windows:[{startAt,endAt}],parameters:[...service.settings.parameters,{name:'--live-real-time-merge',value:'',enabled:true},{name:'--live-wait-time',value:'1',enabled:true}]});
     const recording=service.jobs.find(j=>j.groupId===group);
     const live=await waitJob(service,recording.id,75000);console.log('Scheduled recording:',live.status);fs.writeFileSync(path.join(root,'live.log'),live.logs);assert.equal(live.status,'completed',live.logs);assert.ok(reachedStopping,'Wall-clock stop must send Ctrl+C');
     const files=fs.readdirSync(outputDir).filter(x=>x.endsWith('.mp4'));
     assert.ok(files.some(x=>x.startsWith(live.outputName)),'Current recording must produce its own MP4');
+    // Exercise defaults with both a wall-clock interruption and a finite stream.
+    for (const endpoint of ['live.m3u8', 'test.m3u8']) {
+      liveStarted=Date.now();
+      const startAt=new Date(Date.now()+1000).toISOString(),endAt=new Date(Date.now()+11000).toISOString();
+      const parameters=[...service.snapshot().scheduleParameters,{name:'--live-wait-time',value:'1',enabled:true}];
+      const group=service.addSchedule({url:base+'/'+endpoint,windows:[{startAt,endAt}],parameters});
+      const job=service.jobs.find(j=>j.groupId===group);
+      const result=await waitJob(service,job.id,75000);
+      assert.equal(result.status,'completed',result.logs);
+      assert.equal(path.dirname(result.tempDir),outputDir);
+      const segments=fs.readdirSync(result.tempDir,{recursive:true}).filter(file=>file.endsWith('.ts'));
+      assert.ok(segments.length>1,'Default recording must retain separate media segments');
+      assert.ok(!fs.readdirSync(outputDir).some(file=>file.startsWith(result.outputName)),'Default recording must not create a merged output');
+      assert.ok(!result.logs.includes('最终混流'),'Default recording must skip FFmpeg finalization');
+      console.log('Unmerged recording:',endpoint,result.status,'segments:',segments.length);
+    }
     for(const file of files){
       if(resources){execFileSync(ffmpeg,['-v','error','-i',path.join(outputDir,file),'-f','null','-'],{stdio:'pipe',windowsHide:true});assert.ok(fs.statSync(path.join(outputDir,file)).size>0);console.log('Decoded MP4 with bundled FFmpeg:',file);}
       else {const output=execFileSync('ffprobe',['-v','error','-show_entries','format=duration','-of','csv=p=0',path.join(outputDir,file)],{encoding:'utf8',windowsHide:true});assert.ok(Number(output)>0);console.log('Playable MP4:',file,'duration',output.trim());}

@@ -61,6 +61,7 @@ test('custom save directory is used and task settings are snapshots',t=>{
   const [id]=service.addDownloads({urls:'https://a.test/x',parameters:[...core.DEFAULT_PARAMETERS,{name:'--save-dir',value:output,enabled:true}]});
   service.settings.parameters=[];
   assert.equal(service.jobs.find(j=>j.id===id).outputDir,output);
+  assert.equal(path.dirname(service.jobs.find(j=>j.id===id).tempDir),output);
   assert.ok(calls[0].args.includes('format=mp4'));calls[0].child.emit('close',0);
 });
 test('error text in a URL is not a failure, but an engine ERROR entry is',t=>{
@@ -108,19 +109,49 @@ for (const platform of ['darwin', 'linux']) {
 test('intentional Ctrl+C or SIGINT can complete a scheduled recording only after successful finalization',async t=>{
   for(const [platform,code,signal] of [['win32',0xC000013A,null],['linux',null,'SIGINT']]){
     const {service,calls,setNow}=fixture(t,{platform,killProcess:()=>{}});
-    service.addSchedule({url:'https://a.test/live',windows:[{startAt:'2026-10-11T10:01:00Z',endAt:'2026-10-11T10:02:00Z'}]});
+    service.addSchedule({url:'https://a.test/live',parameters:[...core.DEFAULT_PARAMETERS,{name:'--live-real-time-merge',value:'',enabled:true}],windows:[{startAt:'2026-10-11T10:01:00Z',endAt:'2026-10-11T10:02:00Z'}]});
     setNow('2026-10-11T10:01:00Z');service.tick();
     setNow('2026-10-11T10:02:00Z');service.tick();
     let finalized=false;service.finalizeRecording=async()=>{finalized=true;};
     await service.finish(service.jobs[0],code,'',signal);
     assert.equal(finalized,true);assert.equal(service.jobs[0].status,'completed');
-    service.addSchedule({url:'https://a.test/live',windows:[{startAt:'2026-10-11T10:03:00Z',endAt:'2026-10-11T10:04:00Z'}]});
+    service.addSchedule({url:'https://a.test/live',parameters:core.DEFAULT_PARAMETERS,windows:[{startAt:'2026-10-11T10:03:00Z',endAt:'2026-10-11T10:04:00Z'}]});
     setNow('2026-10-11T10:03:00Z');service.tick();
     setNow('2026-10-11T10:04:00Z');service.tick();
     service.finalizeRecording=async()=>{throw new Error('No media');};
     await service.finish(service.jobs[0],code,'',signal);
     assert.equal(service.jobs[0].status,'failed');assert.match(service.jobs[0].error,/No media/);
   }
+});
+
+test('default schedules keep segments beside downloads and complete on interruption without finalizing',async t=>{
+  for(const [platform,code,signal] of [['win32',0xC000013A,null],['linux',null,'SIGINT'],['darwin',130,null]]){
+    const {service,calls,setNow,directory}=fixture(t,{platform,killProcess:()=>{}});
+    service.engineInfo.ffmpegAvailable=false;
+    const output=path.join(directory,'录制 分片');
+    service.addSchedule({url:'https://a.test/live',outputDir:output,windows:[{startAt:'2026-10-11T10:01:00Z',endAt:'2026-10-11T10:02:00Z'},{startAt:'2026-10-11T11:01:00Z',endAt:'2026-10-11T11:02:00Z'}]});
+    const [job,other]=service.jobs;
+    assert.equal(path.dirname(job.tempDir),output);assert.notEqual(job.tempDir,other.tempDir);
+    assert.deepEqual(job.parameters,service.snapshot().scheduleParameters);
+    setNow('2026-10-11T10:01:00Z');service.tick();
+    assert.ok(!calls[0].args.includes('--live-real-time-merge'));assert.ok(!calls[0].args.includes('-M'));
+    assert.ok(calls[0].args.includes('--skip-merge'));
+    const segment=path.join(job.tempDir,'keep.ts');fs.writeFileSync(segment,'media');
+    setNow('2026-10-11T10:02:00Z');service.tick();
+    service.finalizeRecording=async()=>{throw new Error('Must not merge');};
+    await service.finish(job,code,'',signal);
+    assert.equal(job.status,'completed');assert.equal(fs.readFileSync(segment,'utf8'),'media');
+    assert.ok(!job.logs.includes('等待引擎合并'));
+    service.remove(job.id);assert.ok(fs.existsSync(segment));
+  }
+});
+
+test('skip-merge suppresses fallback finalization even when mux is enabled',async t=>{
+  const {service}=fixture(t);
+  const job={parameters:[...core.DEFAULT_PARAMETERS,{name:'--skip-merge',value:'',enabled:true}]};
+  await assert.doesNotReject(service.finalizeRecording(job));
+  service.engineInfo.ffmpegAvailable=false;
+  assert.doesNotThrow(()=>service.ensureEngine(job.parameters));
 });
 
 test('unexpected SIGINT cannot report a successful ordinary download',async t=>{
