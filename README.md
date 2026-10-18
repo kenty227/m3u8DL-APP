@@ -13,26 +13,26 @@
 
 ## 下载与安装
 
-前往 [GitHub Releases](https://github.com/kenty227/m3u8DL-APP/releases) 查看公开版本、更新说明和下载附件。当前公开版本为 [v1.2.0 预发布版](https://github.com/kenty227/m3u8DL-APP/releases/tag/v1.2.0)，对应下载如下：
+前往 [GitHub Releases](https://github.com/kenty227/m3u8DL-APP/releases) 查看公开版本、更新说明和下载附件。当前公开版本为 [v1.2.1 预发布版](https://github.com/kenty227/m3u8DL-APP/releases/tag/v1.2.1)，对应下载如下：
 
-| 系统与架构 | v1.2.0 下载 | 使用方式 |
+| 系统与架构 | v1.2.1 下载 | 使用方式 |
 | --- | --- | --- |
-| Windows x64 | [便携 EXE](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-Windows.exe) | 下载后双击运行 |
-| macOS Intel（x64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-macOS-x64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-macOS-x64.zip) | 将应用复制到 Applications |
-| macOS Apple Silicon（arm64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-macOS-arm64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-macOS-arm64.zip) | 将应用复制到 Applications |
-| Linux x64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-Linux-x86_64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-Linux-amd64.deb) | AppImage 添加执行权限；Debian / Ubuntu 可安装 DEB |
-| Linux arm64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-Linux-arm64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/m3u8-Studio-1.2.0-Linux-arm64.deb) | 选择与系统架构匹配的文件 |
+| Windows x64 | [便携 EXE](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Windows.exe) | 下载后双击运行 |
+| macOS Intel（x64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-x64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-x64.zip) | 将应用复制到 Applications |
+| macOS Apple Silicon（arm64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-arm64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-arm64.zip) | 将应用复制到 Applications |
+| Linux x64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-x86_64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-amd64.deb) | AppImage 添加执行权限；Debian / Ubuntu 可安装 DEB |
+| Linux arm64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-arm64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-arm64.deb) | 选择与系统架构匹配的文件 |
 
 发行包已包含 Electron、N_m3u8DL-RE 和 FFmpeg，**无需安装 Node.js、配置 PATH 或单独下载这些工具**。GitHub 自动生成的 “Source code” 压缩包与项目的 `Source.zip` 是源码包，不是可直接运行的应用。
 
 Linux x64 AppImage 运行示例，在下载文件所在目录执行：
 
 ```bash
-chmod +x m3u8-Studio-1.2.0-Linux-x86_64.AppImage
-./m3u8-Studio-1.2.0-Linux-x86_64.AppImage
+chmod +x m3u8-Studio-1.2.1-Linux-x86_64.AppImage
+./m3u8-Studio-1.2.1-Linux-x86_64.AppImage
 ```
 
-下载页同时提供 [SHA256SUMS.txt](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/SHA256SUMS.txt) 和 [TOOLS.json](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.0/TOOLS.json)，分别用于核对附件校验值、查看内置工具的版本与来源。
+下载页同时提供 [SHA256SUMS.txt](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/SHA256SUMS.txt) 和 [TOOLS.json](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/TOOLS.json)，分别用于核对附件校验值、查看内置工具的版本与来源。
 
 ### 兼容性与验证范围
 
