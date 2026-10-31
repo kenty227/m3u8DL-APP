@@ -5,6 +5,7 @@ const { EventEmitter } = require('node:events');
 const { promisify } = require('node:util');
 const { randomUUID } = require('node:crypto');
 const core = require('./core.cjs');
+const { validateSlots } = require('./renderer/plan-times.js');
 const { toolEnvironment, validateExecutable, stopProcessGroup, resolveTool } = require('./platform.cjs');
 const execute = promisify(execFile);
 
@@ -20,7 +21,7 @@ class DownloadService extends EventEmitter {
     this.processes = new Map(); this.catalog = core.FALLBACK_OPTIONS;
     this.engineInfo = { available: false, ffmpegAvailable: false, version: '', source: 'fallback', error: '' };
     this.settings = { enginePath: '', ffmpegPath: '', downloadDir, maxConcurrent: 2, parameters: structuredClone(core.DEFAULT_PARAMETERS) };
-    this.jobs = []; this.closing = false; this.saveTimer = null;
+    this.jobs = []; this.plans = []; this.closing = false; this.saveTimer = null;
     fs.mkdirSync(dataDir, { recursive: true });
     try {
       const saved = JSON.parse(fs.readFileSync(this.file, 'utf8'));
@@ -28,6 +29,8 @@ class DownloadService extends EventEmitter {
       this.settings.parameters = core.validateParameters(this.settings.parameters);
       this.settings.maxConcurrent = Math.min(8, Math.max(1, Number(this.settings.maxConcurrent) || 2));
       this.jobs = Array.isArray(saved.jobs) ? saved.jobs : [];
+      const savedPlans = Array.isArray(saved.plans) ? saved.plans : Array.isArray(saved.notes) ? saved.notes : [];
+      this.plans = savedPlans.map(plan => ({ ...plan, slots: validateSlots(plan.slots) }));
       for (const job of this.jobs) {
         if (['running', 'stopping', 'queued'].includes(job.status)) {
           job.status = 'interrupted'; job.error = '应用上次退出时任务未完成，可重新下载。';
@@ -43,12 +46,12 @@ class DownloadService extends EventEmitter {
   }
 
   snapshot() {
-    return { platform: this.platform, settings: structuredClone(this.settings), scheduleParameters: core.scheduleParameters(this.settings.parameters, this.catalog), jobs: structuredClone(this.jobs), catalog: this.catalog, engine: this.engineInfo, warning: this.startupWarning || '' };
+    return { platform: this.platform, settings: structuredClone(this.settings), scheduleParameters: core.scheduleParameters(this.settings.parameters, this.catalog), jobs: structuredClone(this.jobs), plans: structuredClone(this.plans), catalog: this.catalog, engine: this.engineInfo, warning: this.startupWarning || '' };
   }
 
   persist() {
     const temporary = this.file + '.tmp';
-    fs.writeFileSync(temporary, JSON.stringify({ schema: 1, settings: this.settings, jobs: this.jobs }, null, 2));
+    fs.writeFileSync(temporary, JSON.stringify({ schema: 1, settings: this.settings, jobs: this.jobs, plans: this.plans }, null, 2));
     fs.renameSync(temporary, this.file);
   }
 
@@ -138,15 +141,38 @@ class DownloadService extends EventEmitter {
     this.jobs.unshift(...jobs.reverse()); this.changed(); this.tick(); return [...jobs].reverse().map(j => j.id);
   }
 
-  addSchedule(input) {
+  savePlan(input) {
+    if (!input || typeof input.title !== 'string' || !input.title.trim() || input.title.trim().length > 80) throw new Error('请填写 1 至 80 字的方案名称。');
     const url = core.validateUrl(input.url);
+    const content = input.content ?? '';
+    if (typeof content !== 'string' || content.length > 5000) throw new Error('备注最多填写 5000 字。');
+    const slots = validateSlots(input.slots);
+    const previous = input.id ? this.plans.find(plan => plan.id === input.id) : null;
+    if (input.id && !previous) throw new Error('方案不存在，请刷新后重试。');
+    const now = new Date(this.clock()).toISOString();
+    const plan = { id: previous?.id || randomUUID(), title: input.title.trim(), url, content: content.trim(), slots, createdAt: previous?.createdAt || now, updatedAt: now };
+    if (previous) this.plans[this.plans.indexOf(previous)] = plan;
+    else this.plans.unshift(plan);
+    this.changed(); return plan.id;
+  }
+
+  removePlan(id) {
+    const index = this.plans.findIndex(plan => plan.id === id);
+    if (index < 0) throw new Error('方案不存在。');
+    this.plans.splice(index, 1); this.changed();
+  }
+
+  addSchedule(input) {
+    const plan = input.planId ? this.plans.find(plan => plan.id === input.planId) : null;
+    if (input.planId && !plan) throw new Error('引用的方案已删除，请重新选择直播地址。');
+    const url = core.validateUrl(plan ? plan.url : input.url);
     const windows = core.validateWindows(input.windows, this.clock());
     const parameters = core.validateDownloadParameters(input.parameters || core.scheduleParameters(this.settings.parameters, this.catalog), this.catalog);
     if (parameters.some(p => p.enabled && core.canonical(p.name, this.catalog) === '--live-perform-as-vod' && p.value !== 'false')) throw new Error('定时录制不能使用 --live-perform-as-vod，请关闭该参数。');
     this.ensureEngine(parameters);
     const outputDir = this.resolveOutput(input.outputDir, parameters);
     const groupId = randomUUID();
-    const jobs = windows.map(w => core.makeJob({ ...w, groupId, title: String(input.title || '').trim().slice(0, 80), url, status: 'scheduled', parameters: structuredClone(parameters), outputDir, enginePath: this.settings.enginePath, ffmpegPath: this.settings.ffmpegPath }));
+    const jobs = windows.map(w => core.makeJob({ ...w, groupId, title: String(input.title || plan?.title || '').trim().slice(0, 80), url, status: 'scheduled', parameters: structuredClone(parameters), outputDir, enginePath: this.settings.enginePath, ffmpegPath: this.settings.ffmpegPath }));
     for (const job of jobs) job.tempDir = path.join(outputDir, `segments_${job.id}`);
     this.jobs.unshift(...jobs); this.changed(); return groupId;
   }

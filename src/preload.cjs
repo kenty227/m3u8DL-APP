@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const allowed = new Set(['snapshot', 'add-downloads', 'add-schedule', 'save-settings', 'probe', 'probe-settings', 'stop', 'retry', 'remove', 'choose-directory', 'choose-executable', 'open-output', 'open-default-output', 'open-official']);
+const allowed = new Set(['snapshot', 'add-downloads', 'add-schedule', 'save-plan', 'remove-plan', 'save-settings', 'probe', 'probe-settings', 'stop', 'retry', 'remove', 'choose-directory', 'choose-executable', 'open-output', 'open-default-output', 'open-official']);
 contextBridge.exposeInMainWorld('studio', {
   invoke: async (name, value) => {
     if (!allowed.has(name)) throw new Error('未知操作。');

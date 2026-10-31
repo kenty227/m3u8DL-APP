@@ -20,6 +20,7 @@ const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 function fillIcons(element = document) { element.querySelectorAll('[data-icon]').forEach(node => { node.innerHTML = icon(node.dataset.icon); }); }
 const escapeHTML = text => String(text ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 let state, activePage = 'download', filter = 'all', logJobId = null;
+let editingPlanId = null, renderedPlans = '';
 const statuses = { queued:'等待下载', scheduled:'等待开始', running:'下载中', stopping:'正在停止', completed:'已完成', cancelled:'已停止', failed:'失败', interrupted:'已中断', missed:'已过期' };
 const activeStatuses = ['queued', 'running', 'stopping'];
 const recommended = [{ name:'--auto-select', value:'', enabled:true }, { name:'-M', value:'format=mp4', enabled:true }];
@@ -121,14 +122,14 @@ function localDatetime(date) {
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return shifted.toISOString().slice(0,16);
 }
-function addTimeWindow() {
+function addTimeWindow(window) {
   const rows = [...$('time-windows').querySelectorAll('.time-window')];
   const previous = rows.at(-1)?.querySelector('.end-time').value;
-  let start = previous ? new Date(new Date(previous).getTime() + 3600000) : new Date(Date.now() + 10 * 60000);
+  let start = window ? new Date(window.startAt) : previous ? new Date(new Date(previous).getTime() + 3600000) : new Date(Date.now() + 10 * 60000);
   start.setSeconds(0,0);
   const row = document.createElement('div'); row.className = 'time-window';
-  row.innerHTML = `<span class="time-number">${rows.length+1}</span><label>开始时间<input type="datetime-local" class="start-time" aria-label="录制开始时间" value="${localDatetime(start)}"></label><span class="time-separator">→</span><label>结束时间<input type="datetime-local" class="end-time" aria-label="录制结束时间" value="${localDatetime(new Date(start.getTime()+3600000))}"></label><button class="icon-button remove-window" title="移除此时间段" aria-label="移除此时间段">${icon('x')}</button>`;
-  row.querySelector('button').addEventListener('click', () => { if ($('time-windows').children.length === 1) { toast('至少保留一组时间。',true); return; } row.remove(); [...$('time-windows').children].forEach((node,i) => node.querySelector('.time-number').textContent = i+1); });
+  row.innerHTML = `<span class="time-number">${rows.length+1}</span><label>开始时间<input type="datetime-local" class="start-time" aria-label="录制开始时间" value="${localDatetime(start)}"></label><span class="time-separator">→</span><label>结束时间<input type="datetime-local" class="end-time" aria-label="录制结束时间" value="${localDatetime(window ? new Date(window.endAt) : new Date(start.getTime()+3600000))}"></label><button class="icon-button remove-window" title="移除此时间段" aria-label="移除此时间段">${icon('x')}</button>`;
+  row.querySelector('button').addEventListener('click', () => { if ($('time-windows').children.length === 1) { toast('至少保留一组时间。',true); return; } row.remove(); [...$('time-windows').children].forEach((node,i) => node.querySelector('.time-number').textContent = i+1); updateTimeWarning(); });
   $('time-windows').append(row);
 }
 
@@ -152,12 +153,13 @@ function emptyHTML(scheduled) {
   return `<div class="empty-state"><div class="empty-icon">${icon(scheduled ? 'calendar' : 'download')}</div><strong>${scheduled ? '还没有定时任务' : filter === 'all' ? '等待你的第一个下载' : '此分类下暂无任务'}</strong><p>${scheduled ? '添加链接与时间段，应用会自动为你录制' : '在上方粘贴链接，开始保存你喜欢的内容'}</p></div>`;
 }
 function renderLists() {
+  renderPlans();
   const downloads = state.jobs.filter(j => !j.startAt);
-  const scheduled = state.jobs.filter(j => j.startAt).sort((a,b) => Date.parse(a.startAt)-Date.parse(b.startAt));
+  const scheduled = state.jobs.filter(j => j.startAt).sort((a,b) => Date.parse(b.startAt)-Date.parse(a.startAt));
   const visible = downloads.filter(j => filter === 'all' || (filter === 'active' ? activeStatuses.includes(j.status) : j.status === 'completed'));
   $('download-list').innerHTML = visible.length ? visible.map(j => taskHTML(j,false)).join('') : emptyHTML(false);
   $('schedule-list').innerHTML = scheduled.length ? scheduled.map(j => taskHTML(j,true)).join('') : emptyHTML(true);
-  for (const node of document.querySelectorAll('.task')) {
+  for (const node of document.querySelectorAll('#download-list .task, #schedule-list .task')) {
     const job = state.jobs.find(j => j.id === node.dataset.job);
     if (job.progress !== null) { const bar = node.querySelector('.progress>div'); if (bar) bar.style.width = `${job.progress}%`; }
   }
@@ -191,11 +193,83 @@ function setPage(page) {
   activePage = page;
   document.querySelectorAll('.page').forEach(node=>node.classList.toggle('active',node.id===`page-${page}`));
   document.querySelectorAll('.nav-item').forEach(node=>node.classList.toggle('active',node.dataset.page===page));
-  $('breadcrumb').innerHTML = `工作空间 <b>/</b> ${ { download:'单次下载', schedule:'定时下载', settings:'设置' }[page] }`;
+  $('breadcrumb').innerHTML = `工作空间 <b>/</b> ${ { download:'单次下载', schedule:'定时下载', plans:'录制方案', settings:'设置' }[page] }`;
   window.scrollTo(0,0);
 }
 
+function resetPlanEditor() {
+  editingPlanId = null; $('plan-form').reset();
+  $('plan-slots').replaceChildren();
+  $('plan-editor-title').textContent = '新建方案'; $('cancel-plan').classList.add('hidden');
+}
+function addPlanSlot(slot = { startTime:'', endTime:'', endNextDay:false }) {
+  if ($('plan-slots').children.length >= 50) { toast('最多保存 50 组固定时段。',true); return; }
+  const row = document.createElement('div'); row.className = 'time-window plan-slot';
+  row.innerHTML = `<label>开始时间<input type="time" class="slot-start" value="${escapeHTML(slot.startTime)}" required></label><span class="time-separator">→</span><label>结束时间<input type="time" class="slot-end" value="${escapeHTML(slot.endTime)}" required></label><label>结束日期<select class="slot-day"><option value="0">当天</option><option value="1">次日</option></select></label><button type="button" class="icon-button" aria-label="移除此固定时段">${icon('x')}</button>`;
+  row.querySelector('.slot-day').value = slot.endNextDay ? '1' : '0';
+  row.querySelector('button').addEventListener('click', () => row.remove()); $('plan-slots').append(row);
+}
+function updateTimeWarning() {
+  const past = [...$('time-windows').children].filter(row => Date.parse(row.querySelector('.start-time').value) <= Date.now()).length;
+  $('schedule-time-warning').classList.toggle('hidden', !past);
+  $('schedule-time-warning').textContent = past ? `${past} 个时段的开始时间已过去，请更换日期后重新应用方案，或调整、移除这些时段。` : '';
+  return past;
+}
+function applySchedulePlan() {
+  const plan = (state.plans || []).find(plan => plan.id === $('schedule-plan').value);
+  if (!plan) throw new Error('请先选择录制方案。');
+  const windows = window.planTimes.expandSlots(plan.slots || [], $('schedule-date').value);
+  $('schedule-url').value = plan.url; $('schedule-title').value = plan.title;
+  if (windows.length) {
+    $('time-windows').replaceChildren(); windows.forEach(addTimeWindow);
+  }
+  updateTimeWarning(); toast(windows.length ? `已应用 ${windows.length} 个录制时段，可在下方调整。` : '已应用直播地址，请设置录制时间。');
+}
+function renderPlans(force = false) {
+  const plans = state.plans || [], serialized = JSON.stringify(plans);
+  if (!force && renderedPlans === serialized) return;
+  renderedPlans = serialized;
+  const selected = $('schedule-plan').value;
+  $('schedule-plan').innerHTML = '<option value="">手动设置</option>' + plans.map(plan => `<option value="${escapeHTML(plan.id)}">${escapeHTML(plan.title)}</option>`).join('');
+  if (plans.some(plan => plan.id === selected)) $('schedule-plan').value = selected;
+  const query = $('plans-search').value.trim().toLocaleLowerCase();
+  const visible = plans.filter(plan => [plan.title,plan.url,plan.content].some(value => String(value || '').toLocaleLowerCase().includes(query)));
+  $('plans-count').textContent = plans.length; $('plans-total').textContent = plans.length;
+  $('plans-list').innerHTML = visible.length ? visible.map(plan => `<article class="task" data-plan="${escapeHTML(plan.id)}"><div class="task-icon">${icon('file')}</div><div class="task-body"><div class="task-top"><span class="task-name">${escapeHTML(plan.title)}</span></div><div class="task-url plan-url">${escapeHTML(plan.url)}</div><div class="plan-time-summary">${plan.slots?.length ? plan.slots.map(slot => `${escapeHTML(slot.startTime)} → ${slot.endNextDay ? '次日 ' : ''}${escapeHTML(slot.endTime)}`).join(' · ') : '仅保存地址 · 录制时手动设置时间'}</div>${plan.content ? `<div class="plan-content">${escapeHTML(plan.content)}</div>` : ''}<div class="task-bottom"><span class="task-meta">更新于 ${escapeHTML(formatTime(plan.updatedAt))}</span><div class="task-actions"><button data-plan-action="schedule">用于定时下载</button><button data-plan-action="copy">复制地址</button><button data-plan-action="edit">编辑</button><button data-plan-action="delete">删除</button></div></div></div></article>`).join('') : `<div class="empty-state"><div class="empty-icon">${icon('file')}</div><strong>${query ? '没有匹配的方案' : '还没有录制方案'}</strong><p>${query ? '试试其他名称或关键词' : '在上方保存直播地址与固定时段，安排定时任务时即可引用'}</p></div>`;
+}
+
 fillIcons();
+$('apply-plan').addEventListener('click', () => operation($('apply-plan'), applySchedulePlan));
+$('add-plan-slot').addEventListener('click', () => addPlanSlot());
+$('time-windows').addEventListener('input', updateTimeWarning);
+$('plans-search').addEventListener('input', () => renderPlans(true));
+$('cancel-plan').addEventListener('click', resetPlanEditor);
+$('plan-form').addEventListener('submit', event => {
+  event.preventDefault();
+  operation($('save-plan'), async () => {
+    const slots = [...$('plan-slots').children].map(row => ({startTime:row.querySelector('.slot-start').value,endTime:row.querySelector('.slot-end').value,endNextDay:row.querySelector('.slot-day').value === '1'}));
+    await api('save-plan', { id:editingPlanId, title:$('plan-title').value, url:$('plan-url').value, content:$('plan-content').value, slots });
+    resetPlanEditor(); state = await api('snapshot'); renderLists(); toast('方案已保存。');
+  });
+});
+$('plans-list').addEventListener('click', event => {
+  const button = event.target.closest('[data-plan-action]'); if (!button) return;
+  const plan = state.plans.find(plan => plan.id === button.closest('[data-plan]').dataset.plan); if (!plan) return;
+  const action = button.dataset.planAction;
+  if (action === 'edit') {
+    editingPlanId = plan.id; $('plan-title').value = plan.title; $('plan-url').value = plan.url; $('plan-content').value = plan.content;
+    $('plan-slots').replaceChildren(); (plan.slots || []).forEach(addPlanSlot);
+    $('plan-editor-title').textContent = '编辑方案'; $('cancel-plan').classList.remove('hidden'); $('plan-title').focus(); return;
+  }
+  if (action === 'schedule') { $('schedule-plan').value = plan.id; setPage('schedule'); $('schedule-date').focus(); return; }
+  operation(button, async () => {
+    if (action === 'copy') { await navigator.clipboard.writeText(plan.url); toast('直播地址已复制。'); return; }
+    if (!window.confirm(`删除方案“${plan.title}”？已安排的定时任务将保留原地址。`)) return;
+    await api('remove-plan', plan.id);
+    if (editingPlanId === plan.id) resetPlanEditor();
+    state = await api('snapshot'); renderLists(); toast('方案已删除。');
+  });
+});
 document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>setPage(button.dataset.page)));
 document.querySelectorAll('[data-pick]').forEach(button=>button.addEventListener('click',()=>operation(button,async()=>{
   const selected = await api(button.dataset.kind === 'directory' ? 'choose-directory' : 'choose-executable'); if(selected)$(button.dataset.pick).value = selected;
@@ -208,9 +282,11 @@ $('start-download').addEventListener('click',()=>operation($('start-download'),a
 }));
 $('add-window').addEventListener('click',()=> { if($('time-windows').children.length>=50)toast('最多添加 50 组时间。',true); else addTimeWindow(); });
 $('save-schedule').addEventListener('click',()=>operation($('save-schedule'),async()=>{
+  if (updateTimeWarning()) throw new Error('请先调整已经过去的录制时段，再创建任务。');
   const windows = [...$('time-windows').children].map(row=>({ startAt:row.querySelector('.start-time').value,endAt:row.querySelector('.end-time').value }));
   await api('add-schedule',{ title:$('schedule-title').value,url:$('schedule-url').value,windows,parameters:readParameters('schedule-parameters'),outputDir:$('schedule-output').value });
   toast(`已安排 ${windows.length} 个录制时间段。`); $('schedule-url').value=''; $('schedule-title').value=''; $('time-windows').innerHTML='';addTimeWindow();
+  $('schedule-plan').value = ''; updateTimeWarning();
   state = await api('snapshot');renderLists();
 }));
 $('save-settings').addEventListener('click',()=>operation($('save-settings'),async()=>{
@@ -237,6 +313,7 @@ $('close-logs').addEventListener('click',()=>{$('logs-dialog').close();logJobId=
 $('logs-dialog').addEventListener('close',()=>{logJobId=null;});
 $('copy-logs').addEventListener('click',()=>operation($('copy-logs'),async()=>{await navigator.clipboard.writeText($('logs-content').textContent);toast('日志已复制。');}));
 $('timezone-label').textContent=Intl.DateTimeFormat().resolvedOptions().timeZone+' · 本地时间';
+$('schedule-date').value = localDatetime(new Date()).slice(0,10);
 addTimeWindow();
 window.studio.subscribe(snapshot=>{state=snapshot;renderStatus();renderLists();});
 window.studio.warnings(message=>toast(message,true));

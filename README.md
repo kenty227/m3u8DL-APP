@@ -9,30 +9,31 @@
 - **单次下载**：粘贴一个或多个媒体链接，每行一个；支持下载队列、日志查看、停止和重新下载。
 - **下载参数**：折叠面板中配置参数，默认启用 `--auto-select` 和 `-M format=mp4`；支持搜索当前使用的引擎所提供的参数，也可输入自定义选项。
 - **定时下载**：为单个链接设置多组开始、结束时间，默认关闭实时合并和结束后合并，每个时间段独立保留分片。
+- **录制方案**：在本机保存名称、直播地址、多组固定录制时段和备注，支持搜索、编辑、复制地址与删除。定时下载选择方案及日期（默认当天），点击“应用方案”后预览、调整，再创建任务。跨午夜的结束时间可设为“次日”；已过去的时段需调整或移除。方案可只存地址，原直播笔记自动保留为此类方案；后续修改或删除方案不会改变已有任务。
 - **设置**：保存默认参数及参数值、下载目录、并发数量，以及可选的引擎和 FFmpeg 路径。
 
 ## 下载与安装
 
-前往 [GitHub Releases](https://github.com/kenty227/m3u8DL-APP/releases) 查看公开版本、更新说明和下载附件。当前公开版本为 [v1.2.1 预发布版](https://github.com/kenty227/m3u8DL-APP/releases/tag/v1.2.1)，对应下载如下：
+前往 [GitHub Releases](https://github.com/kenty227/m3u8DL-APP/releases) 查看公开版本、更新说明和下载附件。当前公开版本为 [v1.3.0 预发布版](https://github.com/kenty227/m3u8DL-APP/releases/tag/v1.3.0)，对应下载如下：
 
-| 系统与架构 | v1.2.1 下载 | 使用方式 |
+| 系统与架构 | v1.3.0 下载 | 使用方式 |
 | --- | --- | --- |
-| Windows x64 | [便携 EXE](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Windows.exe) | 下载后双击运行 |
-| macOS Intel（x64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-x64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-x64.zip) | 将应用复制到 Applications |
-| macOS Apple Silicon（arm64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-arm64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-macOS-arm64.zip) | 将应用复制到 Applications |
-| Linux x64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-x86_64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-amd64.deb) | AppImage 添加执行权限；Debian / Ubuntu 可安装 DEB |
-| Linux arm64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-arm64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/m3u8-Studio-1.2.1-Linux-arm64.deb) | 选择与系统架构匹配的文件 |
+| Windows x64 | [便携 EXE](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-Windows.exe) | 下载后双击运行 |
+| macOS Intel（x64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-macOS-x64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-macOS-x64.zip) | 将应用复制到 Applications |
+| macOS Apple Silicon（arm64） | [DMG](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-macOS-arm64.dmg) / [ZIP](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-macOS-arm64.zip) | 将应用复制到 Applications |
+| Linux x64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-Linux-x86_64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-Linux-amd64.deb) | AppImage 添加执行权限；Debian / Ubuntu 可安装 DEB |
+| Linux arm64 | [AppImage](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-Linux-arm64.AppImage) / [DEB](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/m3u8-Studio-1.3.0-Linux-arm64.deb) | 选择与系统架构匹配的文件 |
 
 发行包已包含 Electron、N_m3u8DL-RE 和 FFmpeg，**无需安装 Node.js、配置 PATH 或单独下载这些工具**。GitHub 自动生成的 “Source code” 压缩包与项目的 `Source.zip` 是源码包，不是可直接运行的应用。
 
 Linux x64 AppImage 运行示例，在下载文件所在目录执行：
 
 ```bash
-chmod +x m3u8-Studio-1.2.1-Linux-x86_64.AppImage
-./m3u8-Studio-1.2.1-Linux-x86_64.AppImage
+chmod +x m3u8-Studio-1.3.0-Linux-x86_64.AppImage
+./m3u8-Studio-1.3.0-Linux-x86_64.AppImage
 ```
 
-下载页同时提供 [SHA256SUMS.txt](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/SHA256SUMS.txt) 和 [TOOLS.json](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.2.1/TOOLS.json)，分别用于核对附件校验值、查看内置工具的版本与来源。
+下载页同时提供 [SHA256SUMS.txt](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/SHA256SUMS.txt) 和 [TOOLS.json](https://github.com/kenty227/m3u8DL-APP/releases/download/v1.3.0/TOOLS.json)，分别用于核对附件校验值、查看内置工具的版本与来源。
 
 ### 兼容性与验证范围
 
@@ -47,7 +48,7 @@ chmod +x m3u8-Studio-1.2.1-Linux-x86_64.AppImage
 2. 在 **单次下载** 首页粘贴一个或多个 HTTP / HTTPS 媒体链接，每行一个，点击开始下载。链接不要求以 `.m3u8` 结尾，支持带鉴权查询参数的地址。
 3. 展开 **下载参数**，按需启用、关闭、修改、增加或移除选项。参数名称可搜索，参数值单独填写，无需额外添加命令行引号。
 4. 在 **设置** 中保存默认参数、参数值、默认下载目录与同时下载数量。设置对新任务生效，已有任务保留创建时的参数和工具路径。
-5. 在 **定时下载** 中输入一个链接，添加包含日期的开始与结束时间。支持多组时间和跨天，不接受重叠或已过去的时间段。
+5. 在 **录制方案** 中保存常用直播地址、固定时段和备注；在 **定时下载** 中选择方案及日期，点击 **应用方案** 后确认时间并创建任务。也可以手动输入链接和起止时间，支持多组时间与跨天，不接受重叠或已过去的时间段。
 
 任务支持查看日志、打开目录、停止、重新下载及移除记录。移除记录不会删除已下载文件。未指定文件名时自动附加任务 ID；批量下载设置相同的 `--save-name` 时也会附加任务 ID，避免文件覆盖。
 
@@ -55,9 +56,22 @@ chmod +x m3u8-Studio-1.2.1-Linux-x86_64.AppImage
 
 每位用户的设置、任务和日志保存在自己的应用数据目录；内置工具通过应用的相对资源路径定位。运行发行包无需作者的目录、环境变量或用户配置。日志可能包含链接令牌、Cookie 等信息，报告问题或分享日志前请脱敏。
 
+### 录制方案与日期引用
+
+在侧栏 **录制方案** 中新增或编辑方案，填写名称和 HTTP / HTTPS 直播地址。固定时段可添加多组，例如 `10:50–11:30`、`12:20–13:30`；不填写时段则仅保存地址。备注可记录节目安排与使用说明，列表支持按名称、地址或备注搜索。
+
+在 **定时下载** 选择方案，设置 **录制日期**（默认电脑本地当天），点击 **应用方案**。有固定时段的方案会替换下方的地址、任务名称和全部时间段，所有开始时间使用所选日期；仅含地址的方案保留当前时间段。更换日期后再次点击应用，才会重新生成各段时间。应用后可临时修改地址、名称或任意一段时间，原方案不会被更改。
+
+例如日期选 `2026-11-01`，上述两组时段会生成当天的 `10:50–11:30`、`12:20–13:30`。`23:20–00:30` 将结束日期设为 **次日**，则生成 `2026-11-01 23:20` 至 `2026-11-02 00:30`。每组固定时段最长 24 小时；重叠、缺失或反向时段不能保存。
+
+所选日期已有时段开始时间过去时，界面会提示，需更换日期重新应用，或调整、移除对应时段后再创建任务。应用不会自动跳到下一天。创建成功后，每个任务保存独立的地址与时间副本，后续编辑、删除方案不会影响它。
+
+升级到 v1.3.0 后，原直播笔记自动保留为仅含地址和备注的录制方案，原有设置、任务与下载文件继续保留。方案存储在本机，不会随安装包或源码上传到 GitHub。
+
 ### 定时任务行为
 
 - 时间按电脑的本地时区输入和显示，内部保存为 UTC。
+- 任务列表按开始时间倒序排列，较晚开始的任务显示在上方；排序不改变实际执行时间。
 - 定时任务需要应用运行、电脑开机并保持唤醒。应用不会主动唤醒电脑或安装系统服务。
 - Windows / macOS 关闭窗口后继续在后台运行，可从托盘或 macOS Dock 打开；Linux 关闭窗口时最小化到任务栏。完全退出可使用应用菜单、托盘菜单或 Ctrl / ⌘ + Q。
 - 到开始时间自动启动，独立于点播并发队列。到结束时间请求停止录制，默认保留分片，不自动合并。

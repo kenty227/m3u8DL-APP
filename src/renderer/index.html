@@ -14,12 +14,13 @@
     <nav aria-label="主导航">
       <button class="nav-item active" data-page="download"><span data-icon="download"></span>单次下载<span class="nav-count" id="download-count">0</span></button>
       <button class="nav-item" data-page="schedule"><span data-icon="calendar"></span>定时下载<span class="nav-count" id="schedule-count">0</span></button>
+      <button class="nav-item" data-page="plans"><span data-icon="file"></span>录制方案<span class="nav-count" id="plans-count">0</span></button>
       <button class="nav-item" data-page="settings"><span data-icon="settings"></span>设置</button>
     </nav>
     <div class="sidebar-bottom">
       <div class="engine-card"><span class="status-dot" id="engine-dot"></span><div><strong id="engine-label">正在检测引擎</strong><small>N_m3u8DL-RE</small></div><button class="icon-button" id="refresh-engine" title="重新检测引擎" aria-label="重新检测引擎" data-icon="refresh"></button></div>
       <button class="official-link" id="official-link">开源项目 <span data-icon="external"></span></button>
-      <div class="app-version">m3u8 Studio <span>v1.2.0</span></div>
+      <div class="app-version">m3u8 Studio <span>v1.3.0</span></div>
     </div>
   </aside>
 
@@ -46,14 +47,32 @@
         <div class="notice neutral"><span data-icon="info"></span><span>关闭窗口后继续在后台运行，可从托盘、Dock 或任务栏打开。定时任务需要应用运行、电脑保持唤醒；已过期的时间段会自动跳过。</span></div>
         <div class="card composer">
           <div class="section-heading"><h2><span class="small-symbol" data-icon="calendar"></span>新建定时任务</h2></div>
+          <div class="plan-reference"><div class="field"><label for="schedule-plan">录制方案 <span class="optional">可选</span></label><select id="schedule-plan"><option value="">手动设置</option></select></div><div class="field"><label for="schedule-date">录制日期</label><input id="schedule-date" type="date"></div><button class="button secondary" id="apply-plan">应用方案</button></div>
+          <div class="hint reference-hint">选择方案和日期后应用，替换下方地址与固定时段；可以临时调整，已有任务不受方案修改影响。仅含地址的方案保留当前时间段。</div>
           <div class="schedule-fields"><div class="field"><label for="schedule-title">任务名称 <span class="optional">可选</span></label><input id="schedule-title" maxlength="80" placeholder="例如：周末音乐现场"></div><div class="field"><label for="schedule-url">媒体链接</label><input id="schedule-url" placeholder="https://example.com/live/playlist.m3u8" spellcheck="false"></div></div>
           <div class="time-heading"><label>录制时间段</label><span class="muted">可添加多组时间，支持跨天</span></div>
           <div id="time-windows"></div>
           <button class="text-button" id="add-window"><span data-icon="plus"></span>添加时间段</button>
+          <div id="schedule-time-warning" class="notice hidden" role="status"></div>
           <details class="parameter-details"><summary><div><span data-icon="sliders"></span><strong>录制参数</strong><span class="summary-sub">默认保留分片，不自动合并</span></div><span class="chevron" data-icon="chevron"></span></summary><div class="details-content"><div class="parameter-editor" id="schedule-parameters"></div><div class="field"><label for="schedule-output">录制目录 <span class="optional">可选</span></label><div class="path-input"><input id="schedule-output" placeholder="留空使用默认下载目录"><button class="button secondary" data-pick="schedule-output" data-kind="directory" aria-label="选择录制目录" data-icon="folder"></button></div></div><div class="hint">每个时间段的分片保存在录制目录内独立的 segments_任务ID 文件夹。默认关闭实时合并并跳过结束后的合并；需要合并时关闭 --skip-merge，按需启用 --live-real-time-merge 和 -M。录制起止时间由调度器管理。</div></div></details>
           <div class="composer-actions"><span class="save-location"><span data-icon="clock"></span>到时自动开始 · 默认保留分片</span><button class="button primary" id="save-schedule"><span data-icon="plus"></span>添加定时任务</button></div>
         </div>
-        <div class="list-heading"><h2>定时任务 <span class="count-badge" id="schedule-total">0</span></h2><span class="muted">按开始时间排列</span></div><div id="schedule-list" class="task-list"></div>
+        <div class="list-heading"><h2>定时任务 <span class="count-badge" id="schedule-total">0</span></h2><span class="muted">按开始时间倒序排列</span></div><div id="schedule-list" class="task-list"></div>
+      </section>
+
+      <section id="page-plans" class="page">
+        <header class="page-header"><div><div class="eyebrow">RECORDING PLANS</div><h1>录制方案</h1><p>保存直播地址与固定时段，下次只需选择录制日期。</p></div></header>
+        <form id="plan-form" class="card composer">
+          <div class="section-heading"><h2><span class="small-symbol" data-icon="file"></span><span id="plan-editor-title">新建方案</span></h2></div>
+          <div class="schedule-fields"><div class="field"><label for="plan-title">方案名称</label><input id="plan-title" maxlength="80" placeholder="例如：音乐直播频道" required></div><div class="field"><label for="plan-url">直播地址</label><input id="plan-url" placeholder="https://example.com/live/playlist.m3u8" spellcheck="false" required></div></div>
+          <div class="time-heading"><label>固定时段 <span class="optional">可选</span></label><span class="muted">不保存日期，所有时段从所选日期开始</span></div>
+          <div id="plan-slots"></div><button type="button" class="text-button" id="add-plan-slot"><span data-icon="plus"></span>添加固定时段</button>
+          <div class="hint reference-hint">例如 10:50–11:30、12:20–13:30。跨午夜时，将结束日期设为“次日”。不添加时段则仅保存直播地址。</div>
+          <div class="field"><label for="plan-content">备注 <span class="optional">可选</span></label><textarea id="plan-content" rows="3" maxlength="5000" placeholder="记录频道信息、节目时间或使用说明"></textarea></div>
+          <div class="composer-actions"><span class="save-location">保存在本机，重启后仍可使用</span><div class="plan-editor-actions"><button type="button" class="button secondary hidden" id="cancel-plan">取消编辑</button><button type="submit" class="button primary" id="save-plan"><span data-icon="check"></span>保存方案</button></div></div>
+        </form>
+        <div class="list-heading"><h2>已存方案 <span class="count-badge" id="plans-total">0</span></h2><input id="plans-search" type="search" aria-label="搜索录制方案" placeholder="搜索名称、地址或备注"></div>
+        <div id="plans-list" class="task-list"></div>
       </section>
 
       <section id="page-settings" class="page">
@@ -61,13 +80,14 @@
         <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="box"></span>下载引擎</h2><span class="tag">N_m3u8DL-RE</span></div><div class="field"><label for="engine-path">引擎可执行文件</label><div class="path-input"><input id="engine-path" placeholder="留空使用内置 N_m3u8DL-RE"><button class="button secondary" data-pick="engine-path" data-kind="executable">浏览</button></div></div><div class="field"><label for="ffmpeg-path">FFmpeg 可执行文件</label><div class="path-input"><input id="ffmpeg-path" placeholder="留空使用内置 FFmpeg"><button class="button secondary" data-pick="ffmpeg-path" data-kind="executable">浏览</button></div><div class="hint">用于将音视频混流为 MP4 等格式。</div></div><div class="engine-check"><span id="engine-check-result">正在检测…</span><button class="text-button" id="test-engine"><span data-icon="refresh"></span>检测配置</button></div></div>
         <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="folder"></span>下载偏好</h2></div><div class="field"><label for="settings-output">默认下载目录</label><div class="path-input"><input id="settings-output"><button class="button secondary" data-pick="settings-output" data-kind="directory">浏览</button></div></div><div class="field inline-field"><div><label for="max-concurrent">同时下载任务数</label><div class="hint">点播任务按队列执行；定时录制独立按时启动。</div></div><select id="max-concurrent"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div></div>
         <div class="card settings-card"><div class="section-heading"><h2><span class="small-symbol" data-icon="sliders"></span>默认下载参数</h2><button class="text-button" id="reset-parameters">恢复推荐值</button></div><p class="card-description">新建下载与定时任务会使用这些参数。可搜索引擎支持的选项，也可直接输入自定义参数。</p><div class="parameter-editor" id="settings-parameters"></div></div>
-        <div class="settings-note"><span data-icon="shield"></span>配置与任务记录保存在本机。关闭窗口继续在后台运行，可从应用菜单或托盘菜单完全退出（Ctrl / ⌘ + Q）。</div>
+        <div class="settings-plan"><span data-icon="shield"></span>配置与任务记录保存在本机。关闭窗口继续在后台运行，可从应用菜单或托盘菜单完全退出（Ctrl / ⌘ + Q）。</div>
       </section>
       <footer class="footer"><span>由 N_m3u8DL-RE 驱动</span><span>把时间留给内容。</span></footer>
     </div>
   </main>
   <dialog id="logs-dialog"><div class="dialog-header"><div><h2>任务日志</h2><p id="logs-subtitle"></p></div><button class="icon-button" id="close-logs" title="关闭日志" aria-label="关闭日志" data-icon="x"></button></div><pre id="logs-content"></pre><div class="dialog-footer"><span id="logs-status"></span><button class="button secondary" id="copy-logs"><span data-icon="copy"></span>复制日志</button></div></dialog>
   <div id="toasts" aria-live="polite"></div>
+  <script src="plan-times.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

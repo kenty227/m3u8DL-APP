@@ -55,6 +55,7 @@ const server=http.createServer((req,res)=>{
     if(message.id){const task=pending.get(message.id);if(task){clearTimeout(task.timer);pending.delete(message.id);message.error?task.reject(new Error(message.error.message)):task.resolve(message.result);}}
     else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails);
     else if(message.method==='Log.entryAdded'&&message.params.entry.level==='error')errors.push(message.params.entry);
+    else if(message.method==='Page.javascriptDialogOpening')command('Page.handleJavaScriptDialog',{accept:true});
   });
   await command('Runtime.enable');await command('Log.enable');await command('Page.enable');
   await until(`window.studio && document.querySelector('.parameter-row') && document.getElementById('engine-label').textContent.includes('就绪')`);
@@ -84,20 +85,51 @@ const server=http.createServer((req,res)=>{
   await screenshot('settings');
   await evaluate(`document.getElementById('settings-parameters').scrollIntoView({block:'end'});`);await screenshot('settings-parameters');
   const base=`http://127.0.0.1:${server.address().port}`;
+  await evaluate(`document.querySelector('[data-page=plans]').click();document.getElementById('plan-title').value='常用直播频道';document.getElementById('plan-url').value=${JSON.stringify(base+'/test.m3u8')};document.getElementById('plan-content').value='长期地址 <测试> & 频道备注';document.getElementById('save-plan').click();`);
+  await until(`document.querySelectorAll('#plans-list .task').length===1`);
+  assert.equal(await evaluate(`document.getElementById('schedule-date').value`),await evaluate(`localDatetime(new Date()).slice(0,10)`));
+  assert.ok(await evaluate(`document.querySelector('.plan-time-summary').textContent.includes('仅保存地址')`));
+  assert.equal(await evaluate(`document.querySelector('.plan-content').textContent`),'长期地址 <测试> & 频道备注');
+  await evaluate(`document.getElementById('plans-search').value='不存在';document.getElementById('plans-search').dispatchEvent(new Event('input'));`);
+  assert.equal(await evaluate(`document.querySelectorAll('#plans-list .task').length`),0);
+  await evaluate(`document.getElementById('plans-search').value='频道备注';document.getElementById('plans-search').dispatchEvent(new Event('input'));document.querySelector('[data-plan-action=edit]').click();document.getElementById('plan-title').value='常用音乐频道';document.getElementById('add-plan-slot').click();document.querySelector('.slot-start').value='10:50';document.querySelector('.slot-end').value='11:30';document.getElementById('add-plan-slot').click();document.querySelectorAll('.slot-start')[1].value='23:20';document.querySelectorAll('.slot-end')[1].value='00:30';document.querySelectorAll('.slot-day')[1].value='1';document.getElementById('save-plan').click();`);
+  await until(`document.querySelector('#plans-list .task-name').textContent==='常用音乐频道'`);
+  await screenshot('plans');
   await evaluate(`document.querySelector('[data-page=download]').click();document.getElementById('download-urls').value=${JSON.stringify(base+'/test.m3u8?one=1\n'+base+'/test.m3u8?two=2')};document.getElementById('start-download').click();`);
   await until(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>!j.startAt&&j.status==='completed').length>=2)`,30000);
   const downloaded=await evaluate(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>!j.startAt&&j.status==='completed'))`);
   const outputFiles=fs.readdirSync(path.join(root,'.smoke/ui-output'));
   for(const job of downloaded)assert.ok(outputFiles.some(file=>file.endsWith('.mp4')&&file.includes(job.id.slice(0,8))),'Each batch task needs a separate MP4 file');
   await screenshot('downloads-completed');
-  await evaluate(`document.querySelector('[data-page=schedule]').click();document.getElementById('schedule-title').value='本地录制计划';document.getElementById('schedule-url').value=${JSON.stringify(base+'/test.m3u8')};document.getElementById('add-window').click();`);await screenshot('schedule-form');
+  await evaluate(`document.querySelector('[data-page=plans]').click();document.querySelector('[data-plan-action=schedule]').click();document.getElementById('schedule-date').value='2020-01-01';document.getElementById('apply-plan').click();`);
+  assert.ok(await evaluate(`!document.getElementById('schedule-time-warning').classList.contains('hidden')`));
+  await evaluate(`document.getElementById('save-schedule').click();`);
+  assert.equal(await evaluate(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.startAt).length)`),0);
+  await evaluate(`document.getElementById('schedule-date').value='2099-12-31';document.getElementById('apply-plan').click();`);
+  assert.equal(await evaluate(`document.getElementById('schedule-url').readOnly`),false);
+  assert.equal(await evaluate(`document.getElementById('schedule-title').value`),'常用音乐频道');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.start-time')].map(input=>input.value)`),['2099-12-31T10:50','2099-12-31T23:20']);
+  assert.equal(await evaluate(`document.querySelectorAll('.end-time')[1].value`),'2100-01-01T00:30');
+  assert.ok(await evaluate(`document.getElementById('schedule-time-warning').classList.contains('hidden')`));
+  await evaluate(`document.getElementById('schedule-url').value=${JSON.stringify(base+'/test.m3u8?temporary=1')};document.querySelector('.end-time').value='2099-12-31T11:40';`);
+  await screenshot('schedule-form');
   const scheduleParameters=await evaluate(`readParameters('schedule-parameters')`);
   assert.ok(scheduleParameters.some(p=>p.name==='--skip-merge'&&p.enabled));
   assert.ok(!scheduleParameters.some(p=>['-M','--mux-after-done','--live-real-time-merge','--live-pipe-mux'].includes(p.name)&&p.enabled));
   await evaluate(`document.getElementById('save-schedule').click();`);
   await until(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled').length===2)`);
   const scheduled=await evaluate(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled'))`);
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('#schedule-list .task')].map(node=>node.dataset.job)`),[...scheduled].sort((a,b)=>Date.parse(b.startAt)-Date.parse(a.startAt)).map(job=>job.id));
   for(const job of scheduled){assert.deepEqual(job.parameters,scheduleParameters);assert.equal(path.dirname(job.tempDir),job.outputDir);}
+  assert.ok(scheduled.every(job=>job.url===base+'/test.m3u8?temporary=1'));
+  assert.ok(await evaluate(`window.studio.invoke('snapshot').then(s=>s.plans[0].slots[0].endTime==='11:30' && s.plans[0].url===${JSON.stringify(base+'/test.m3u8')})`));
+  await evaluate(`document.querySelector('[data-page=plans]').click();document.querySelector('[data-plan-action=edit]').click();document.getElementById('plan-url').value='https://example.com/changed.m3u8';document.getElementById('save-plan').click();`);
+  await until(`window.studio.invoke('snapshot').then(s=>s.plans[0].url==='https://example.com/changed.m3u8')`);
+  await evaluate(`document.querySelector('[data-plan-action=delete]').click();`);
+  await until(`window.studio.invoke('snapshot').then(s=>s.plans.length===0)`);
+  assert.ok(await evaluate(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.startAt).every(j=>j.url===${JSON.stringify(base+'/test.m3u8?temporary=1')}))`));
+  assert.equal(await evaluate(`document.getElementById('schedule-url').readOnly`),false);
+  await evaluate(`document.querySelector('[data-page=schedule]').click();`);
   await screenshot('schedule');
   await evaluate(`document.querySelector('#schedule-list [data-action=stop]').click();`);
   await until(`window.studio.invoke('snapshot').then(s=>s.jobs.filter(j=>j.status==='scheduled').length===1)`);
@@ -106,7 +138,7 @@ const server=http.createServer((req,res)=>{
   await evaluate(`document.getElementById('close-logs').click();`);
   assert.deepEqual(errors,[],'Renderer must have no JavaScript or CSP errors');
   assert.ok(await closeNativeWindow(),'Closing the native window must hide it and preserve the background service');
-  console.log('UI verified: navigation, searchable parameters, saved defaults, separate batch files, two schedule windows, cancellation, logs, renderer isolation, close-to-tray.');
+  console.log('UI verified: recording plans CRUD/search, address-only plans, fixed slots, default local date, shared date application, overnight ranges, past-time guard, temporary overrides, independent schedule snapshots, batch downloads, cancellation, logs, renderer isolation, close-to-tray.');
 } )().catch(error=>{console.error(error);if(electronOutput)console.error(electronOutput);process.exitCode=1;}).finally(async()=>{
   socket?.close();server.close();
   if(electron?.pid){if(process.platform==='win32')await new Promise(resolve=>execFile('taskkill',['/PID',String(electron.pid),'/T','/F'],{windowsHide:true},resolve));else {try{process.kill(-electron.pid,'SIGKILL');}catch(error){if(error.code!=='ESRCH')throw error;}}}

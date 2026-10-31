@@ -19,6 +19,70 @@ function fixture(t, overrides = {}) {
   t.after(()=> { clearTimeout(service.saveTimer);for(const entry of service.processes.values())clearTimeout(entry.timeout);fs.rmSync(directory,{recursive:true,force:true}); });
   return {service,calls,directory,setNow:value=>now=Date.parse(value)};
 }
+test('stream plans persist edits across restarts and snapshots are isolated', t => {
+  const {service,directory} = fixture(t);
+  service.engineInfo.available = false;
+  const id = service.savePlan({title:' 音乐频道 ',url:' https://a.test/live?token=keep ',content:' 周末直播\n长期地址 '});
+  const snapshot = service.snapshot();
+  assert.equal(snapshot.plans[0].title,'音乐频道');
+  assert.equal(snapshot.plans[0].content,'周末直播\n长期地址');
+  snapshot.plans[0].url = 'https://changed.test';
+  assert.equal(service.plans[0].url,'https://a.test/live?token=keep');
+  const slots = [{startTime:'10:50',endTime:'11:30',endNextDay:false},{startTime:'23:20',endTime:'00:30',endNextDay:true}];
+  service.savePlan({id,title:'新名称',url:'https://a.test/new',content:'',slots});
+  assert.deepEqual(service.plans[0].slots,slots);
+  const recovered = new DownloadService({dataDir:directory,downloadDir:path.join(directory,'output')});
+  assert.deepEqual(recovered.plans,service.plans);
+  recovered.removePlan(id);
+  assert.deepEqual(JSON.parse(fs.readFileSync(recovered.file,'utf8')).plans,[]);
+});
+
+test('legacy stream notes migrate without losing identifiers, addresses, timestamps or jobs', t => {
+  const {service,directory} = fixture(t);
+  const legacy = {id:'legacy-id',title:'原直播笔记',url:'https://a.test/live?token=keep',content:'备注',createdAt:'2026-10-01T00:00:00Z',updatedAt:'2026-10-02T00:00:00Z'};
+  const job = {id:'existing-job',url:legacy.url,status:'scheduled',startAt:'2026-12-01T10:00:00Z',endAt:'2026-12-01T11:00:00Z'};
+  fs.writeFileSync(service.file,JSON.stringify({schema:1,notes:[legacy],jobs:[job]}));
+  const recovered = new DownloadService({dataDir:directory,downloadDir:path.join(directory,'output')});
+  assert.deepEqual(recovered.plans,[{...legacy,slots:[]}]);
+  assert.deepEqual(recovered.jobs,[job]);
+  recovered.removePlan(legacy.id);
+  const restarted = new DownloadService({dataDir:directory,downloadDir:path.join(directory,'output')});
+  assert.deepEqual(restarted.plans,[]);
+  assert.deepEqual(restarted.jobs,[job]);
+});
+
+test('invalid fixed times cannot overwrite a saved plan', t => {
+  const {service} = fixture(t);
+  const id = service.savePlan({title:'频道',url:'https://a.test/live'});
+  assert.throws(() => service.savePlan({id,title:'频道',url:'https://a.test/live',slots:[{startTime:'12:00',endTime:'11:00',endNextDay:false}]}));
+  assert.deepEqual(service.plans[0].slots,[]);
+});
+
+test('plans validate input and missing edits without changing stored data', t => {
+  const {service} = fixture(t);
+  for (const input of [null,{}, {title:' ',url:'https://a.test'}, {title:'x'.repeat(81),url:'https://a.test'}, {title:'频道',url:'file:///bad'}, {title:'频道',url:'https://a.test',content:'x'.repeat(5001)}, {id:'missing',title:'频道',url:'https://a.test'}]) {
+    assert.throws(() => service.savePlan(input));
+  }
+  assert.throws(() => service.removePlan('missing'));
+  assert.deepEqual(service.plans,[]);
+});
+
+test('schedule references resolve saved plans and keep their address after edits and deletion', t => {
+  const {service} = fixture(t);
+  const planId = service.savePlan({title:'音乐频道',url:'https://a.test/live?token=original'});
+  const windows = [{startAt:'2026-10-11T10:01:00Z',endAt:'2026-10-11T10:02:00Z'}];
+  service.addSchedule({planId,url:'https://ignored.test',windows});
+  assert.equal(service.jobs[0].url,'https://a.test/live?token=original');
+  assert.equal(service.jobs[0].title,'音乐频道');
+  service.savePlan({id:planId,title:'新频道',url:'https://a.test/new'});
+  service.addSchedule({planId,title:'自定义任务',windows});
+  assert.equal(service.jobs[0].url,'https://a.test/new');
+  assert.equal(service.jobs[0].title,'自定义任务');
+  service.removePlan(planId);
+  assert.equal(service.jobs[1].url,'https://a.test/live?token=original');
+  assert.throws(() => service.addSchedule({planId,url:'https://fallback.test',windows}),/方案已删除/);
+});
+
 test('batch queue honors concurrency, advances on completion and never launches a shell',t=>{
   const {service,calls}=fixture(t);service.settings.maxConcurrent=1;
   service.addDownloads({urls:'https://a.test/1\nhttps://a.test/2'});

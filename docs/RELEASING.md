@@ -25,11 +25,13 @@ Actions 的 **Desktop builds** 在 Windows x64、macOS x64 / arm64、Linux x64 /
 
 ## 创建预发布 Release
 
-更新 `package.json` 和锁文件的版本，例如 `npm version 1.2.1 --no-git-tag-version`，并在 CHANGELOG.md 添加 `## 1.2.1`。提交并推送代码，确认主分支 CI 正常，然后推送完全一致的版本标签：
+更新 `package.json` 和锁文件的版本，例如 `npm version 1.3.0 --no-git-tag-version`，并在 CHANGELOG.md 添加 `## 1.3.0`。提交并推送代码，确认主分支 CI 正常，然后推送完全一致的版本标签：
+
+同步检查界面侧栏版本、README 的下载链接与使用说明。v1.3.0 的桌面验收应包含录制方案的新增/编辑/删除、默认当天、统一日期应用、跨天时段、过去时间提示、旧笔记迁移，以及定时任务列表倒序排列。公开附件由标签触发的五个平台 CI 生成；本机临时测试包不作为公开发行附件。
 
 ```bash
-git tag -a v1.2.0 -m "m3u8 Studio 1.2.0"
-git push origin v1.2.0
+git tag -a v1.3.0 -m "m3u8 Studio 1.3.0"
+git push origin v1.3.0
 ```
 
 标签不匹配、任一平台构建或媒体验证失败都不会生成 Release。五个平台全部通过后，汇总任务自动附上：

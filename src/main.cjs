@@ -32,6 +32,8 @@ function registerIPC() {
     snapshot: () => service.snapshot(),
     'add-downloads': input => service.addDownloads(input),
     'add-schedule': input => service.addSchedule(input),
+    'save-plan': input => service.savePlan(input),
+    'remove-plan': id => service.removePlan(id),
     'save-settings': input => service.saveSettings(input),
     probe: () => service.probe(),
     'probe-settings': input => service.probe({ enginePath: String(input.enginePath || ''), ffmpegPath: String(input.ffmpegPath || '') }, false),
